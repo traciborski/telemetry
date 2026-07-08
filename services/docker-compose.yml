@@ -3,7 +3,7 @@ services:
   # Kafka (Redpanda is a lightweight, Kafka-API-compatible single-binary broker)
   # ---------------------------------------------------------------------------
   redpanda:
-    image: docker.redpanda.com/redpandadata/redpanda:latest
+    image: docker.io/redpandadata/redpanda:latest
     container_name: redpanda
     command:
       - redpanda
@@ -27,7 +27,7 @@ services:
       - redpanda-data:/var/lib/redpanda/data
 
   redpanda-console:
-    image: docker.redpanda.com/redpandadata/console:latest
+    image: docker.io/redpandadata/console:latest
     container_name: redpanda-console
     entrypoint: /bin/sh
     command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml; /app/console'
@@ -36,13 +36,6 @@ services:
       CONSOLE_CONFIG_FILE: |
         kafka:
           brokers: ["redpanda:9092"]
-          schemaRegistry:
-            enabled: true
-            urls: ["http://redpanda:8081"]
-        redpanda:
-          adminApi:
-            enabled: true
-            urls: ["http://redpanda:9644"]
     ports:
       - "8085:8080" # Browse topics/messages at http://localhost:8085
     depends_on:
@@ -66,7 +59,7 @@ services:
       - mimir
 
   tempo:
-    image: grafana/tempo:latest
+    image: docker.io/grafana/tempo:2.6.1
     container_name: tempo
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:

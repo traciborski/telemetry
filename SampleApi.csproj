@@ -3,6 +3,14 @@
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
+    <!-- services\ contains its own separate solution (Services.slnx) with its own projects;
+         exclude it here so SampleApi's default SDK globbing doesn't try to compile those files too. -->
+    <Compile Remove="services\**" />
+    <Content Remove="services\**" />
+    <EmbeddedResource Remove="services\**" />
+    <None Remove="services\**" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.13.1" />
     <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.13.1" />
     <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.13.1" />

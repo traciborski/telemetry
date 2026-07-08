@@ -93,9 +93,9 @@ Powinieneś dostać `202 Accepted` z `OrderId`. Następnie:
 1. **Redpanda Console** (http://localhost:8085) → Topics → zobacz wiadomość w `orders.created` i `orders.processed`.
 2. **Grafana → Explore → Tempo** (http://localhost:3000) → wyszukaj trace po `OrderId` albo po service
    `ServiceA` - zobaczysz jeden trace ze spanami ze wszystkich 4 serwisów (HTTP + Kafka publish/process + HTTP).
-3. **Grafana → Explore → Loki** → `{service_name="service-a"}` (albo b/c/d) - zobaczysz logi `LogInformation`
-   z każdego kroku.
-4. **Grafana → Explore → Mimir** → np. metryka `http_server_request_duration_seconds_count`.
+3. **Grafana → Explore → Loki** → `{service_name="ServiceA"}` (albo `ServiceB`/`ServiceC`/`ServiceD`) - zobaczysz
+   logi `LogInformation` z każdego kroku.
+4. **Grafana → Explore → Mimir** → np. metryka `http_server_request_duration_count`.
 
 ## Struktura katalogów
 
