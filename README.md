@@ -81,10 +81,12 @@ pierwszy request (Kafka topic tworzy się automatycznie przy pierwszej publikacj
 
 ### Test end-to-end
 
+```bash
+curl -Method Post -Uri http://localhost:8081/orders -ContentType "application/json" -Body '{"product":"Widget","quantity":3}'
+```
+
 ```powershell
-curl -Method Post -Uri http://localhost:8081/orders `
-  -ContentType "application/json" `
-  -Body '{"product":"Widget","quantity":3}'
+Invoke-RestMethod -Method Post -Uri "http://localhost:8081/orders" -ContentType "application/json" -Body '{"product":"Widget","quantity":3}'
 ```
 
 Powinieneś dostać `202 Accepted` z `OrderId`. Następnie:
