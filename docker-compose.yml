@@ -38,6 +38,55 @@ services:
     depends_on:
       - redpanda
 
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: azurite
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --loose --skipApiVersionCheck"
+    volumes:
+      - azurite-data:/data
+    ports:
+      - "10000:10000" # Blob service
+      - "10001:10001" # Queue service
+      - "10002:10002" # Table service
+    healthcheck:
+      test: nc 127.0.0.1 10000 -z
+      interval: 2s
+      retries: 20
+
+  azurite-init:
+    image: mcr.microsoft.com/azure-cli:latest
+    container_name: azurite-init
+    depends_on:
+      azurite:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "az storage container create --name loki-chunks --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\" &&
+       az storage container create --name mimir-blocks --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\" &&
+       az storage container create --name mimir-ruler --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\" &&
+       az storage container create --name tempo-traces --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\""
+    environment:
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+
+  azurite-ui:
+    build:
+      context: https://github.com/adrianhall/azurite-ui.git#main
+      dockerfile: Dockerfile
+    container_name: azurite-ui
+    restart: unless-stopped
+    ports:
+      - "8086:8080" # http://localhost:8086 - przeglądanie kontenerów/blobów Azurite
+    depends_on:
+      azurite:
+        condition: service_healthy
+    volumes:
+      - azurite-ui-data:/app/data # cache SQLite azurite-ui
+    environment:
+      - ConnectionStrings__Azurite=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      - ConnectionStrings__CacheDatabase=Data Source=/app/data/cache.db;Mode=ReadWriteCreate;Cache=Shared;Foreign Keys=True;
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-collector
@@ -58,9 +107,12 @@ services:
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
       - ./observability/tempo.yaml:/etc/tempo.yaml
-      - tempo-data:/var/tempo
+      - tempo-data:/var/tempo # tylko WAL/scratch - trace'y po flushu lądują w Azurite
     ports:
       - "3200:3200" # Tempo query API
+    depends_on:
+      azurite-init:
+        condition: service_completed_successfully
 
   loki:
     image: grafana/loki:latest
@@ -68,9 +120,12 @@ services:
     command: -config.file=/etc/loki-config.yaml
     volumes:
       - ./observability/loki-config.yaml:/etc/loki-config.yaml
-      - loki-data:/tmp/loki
+      - loki-data:/tmp/loki # tylko WAL/cache - chunki i indeks lądują w Azurite
     ports:
       - "3100:3100"
+    depends_on:
+      azurite-init:
+        condition: service_completed_successfully
 
   mimir:
     image: grafana/mimir:latest
@@ -78,9 +133,12 @@ services:
     command: ["-config.file=/etc/mimir.yaml"]
     volumes:
       - ./observability/mimir.yaml:/etc/mimir.yaml
-      - mimir-data:/tmp/mimir
+      - mimir-data:/tmp/mimir # tylko sync/scratch - bloki lądują w Azurite
     ports:
       - "9009:9009"
+    depends_on:
+      azurite-init:
+        condition: service_completed_successfully
 
   grafana:
     image: grafana/grafana:latest
@@ -156,6 +214,8 @@ services:
 
 volumes:
   redpanda-data:
+  azurite-data:
+  azurite-ui-data:
   tempo-data:
   loki-data:
   mimir-data:

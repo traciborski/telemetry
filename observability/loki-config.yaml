@@ -6,11 +6,12 @@ server:
 
 common:
   instance_addr: 127.0.0.1
+  # path_prefix zostaje lokalny - to tylko WAL/cache instancji, nie chunki/indeks.
   path_prefix: /tmp/loki
   storage:
-    filesystem:
-      chunks_directory: /tmp/loki/chunks
-      rules_directory: /tmp/loki/rules
+    azure:
+      connection_string: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      container_name: loki-chunks
   replication_factor: 1
   ring:
     kvstore:
@@ -24,7 +25,6 @@ query_range:
         max_size_mb: 100
 
 limits_config:
-  # Required for OTLP ingestion (log attributes that don't map to index labels are stored here).
   allow_structured_metadata: true
   volume_enabled: true
   retention_period: 24h
@@ -33,7 +33,7 @@ schema_config:
   configs:
     - from: 2020-10-24
       store: tsdb
-      object_store: filesystem
+      object_store: azure
       schema: v13
       index:
         prefix: index_
@@ -41,5 +41,5 @@ schema_config:
 
 compactor:
   working_directory: /tmp/loki/retention
-  delete_request_store: filesystem
+  delete_request_store: azure
   retention_enabled: true

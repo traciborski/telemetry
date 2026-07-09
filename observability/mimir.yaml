@@ -4,11 +4,15 @@
 multitenancy_enabled: false
 
 blocks_storage:
-  backend: filesystem
+  backend: azure
+  azure:
+    # account_name musi być podany jawnie - wewnętrzna walidacja objstore/azure
+    # wymaga go zawsze, nawet gdy connection_string też zawiera AccountName.
+    account_name: devstoreaccount1
+    connection_string: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    container_name: mimir-blocks
   bucket_store:
     sync_dir: /tmp/mimir/tsdb-sync
-  filesystem:
-    dir: /tmp/mimir/data/tsdb
   tsdb:
     dir: /tmp/mimir/tsdb
 
@@ -32,9 +36,11 @@ ingester:
     replication_factor: 1
 
 ruler_storage:
-  backend: filesystem
-  filesystem:
-    dir: /tmp/mimir/rules
+  backend: azure
+  azure:
+    account_name: devstoreaccount1
+    connection_string: DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    container_name: mimir-ruler
 
 server:
   http_listen_port: 9009
@@ -43,3 +49,8 @@ server:
 store_gateway:
   sharding_ring:
     replication_factor: 1
+
+# Domyślny bucket-client usage-stats wymaga account_name wprost (nie akceptuje
+# samego connection_string) - w tym POC telemetria anonimowa i tak jest zbędna.
+usage_stats:
+  enabled: false

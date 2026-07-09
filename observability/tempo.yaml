@@ -19,8 +19,11 @@ compactor:
 
 storage:
   trace:
-    backend: local
-    local:
-      path: /var/tempo/traces
+    backend: azure
+    azure:
+      storage_account_name: devstoreaccount1
+      storage_account_key: Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+      container_name: tempo-traces
+      endpoint_suffix: azurite:10000
     wal:
       path: /var/tempo/wal

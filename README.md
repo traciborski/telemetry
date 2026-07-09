@@ -37,13 +37,51 @@ wiadomości z Kafki - te logi trafiają przez OTLP do Loki.
 | Logi     | Grafana Loki | serwisy → OTLP → otel-collector → natywny endpoint OTLP Loki (`/otlp`) |
 | Metryki  | Grafana Mimir | serwisy → OTLP → otel-collector → natywny endpoint OTLP Mimir (`/otlp`) |
 
-Wszystko na wolumenach dockerowych (lokalny dysk) - zgodnie z ustaleniami, bez Azure Blob/Azurite.
+Dane Tempo/Loki/Mimir (bloki, chunki, indeks, trace'y - czyli wszystko poza lokalnym
+WAL-em/cache) trzymane są w **Azure Blob Storage**, lokalnie emulowanym przez
+**Azurite** - tak, żeby setup jak najbardziej odzwierciedlał docelowy deployment na
+Azure (gdzie te same trzy backendy piszą do prawdziwego Storage Account). Wolumeny
+dockerowe (`tempo-data`, `loki-data`, `mimir-data`) służą już tylko jako lokalny
+scratch/WAL - żadne z nich nie trzyma docelowych danych.
+
+| Kontener Azurite | Zawartość |
+|-------------------|-----------|
+| `tempo-traces` | bloki trace'ów z Tempo |
+| `loki-chunks`  | chunki + indeks (TSDB) z Loki |
+| `mimir-blocks` | bloki metryk (TSDB) z Mimir |
+| `mimir-ruler`  | reguły alertów/recording rules Mimira (nieużywane w tym POC, ale wymagają skonfigurowanego backendu) |
 
 Grafana ma już wpięte wszystkie 3 źródła danych (auto-provisioning) + link trace→logi
 (kliknięcie w span w Tempo pokazuje powiązane logi z Loki).
 
 Kafka to **Redpanda** (jeden kontener, kompatybilny z klientem Kafka .NET) + **Redpanda Console**
 do podglądu topiców/wiadomości.
+
+## Azure Blob Storage (lokalnie) i podgląd blobów
+
+**Azurite** (`mcr.microsoft.com/azure-storage/azurite`) to oficjalny emulator Azure
+Storage od Microsoftu - udostępnia lokalnie API Blob/Queue/Table identyczne z
+prawdziwym Azure, więc Tempo/Loki/Mimir łączą się z nim dokładnie tak samo jak
+łączyłyby się z prawdziwym Storage Accountem (ta sama konfiguracja `azure:` w ich
+plikach YAML, zmienia się tylko connection string/endpoint).
+
+Przy starcie stosu jednorazowy kontener `azurite-init` tworzy w Azurite wymagane
+kontenery blobowe (Azurite, tak jak prawdziwy Azure, nie tworzy ich automatycznie).
+
+Do podglądu zawartości blobów służy **[Azurite UI](https://github.com/adrianhall/azurite-ui)**
+- lekka, webowa konsola do przeglądania kontenerów i blobów Azurite (odpowiednik
+Azure Storage Explorer, ale bez instalowania czegokolwiek na hoście). Budowana jest
+lokalnie wprost z repo Git (ma `Dockerfile` w roocie), a nie pobierana jako gotowy
+obraz z `ghcr.io` - dzięki temu nie zależy od uwierzytelniania do zewnętrznego
+rejestru kontenerów, tylko od zwykłego `git clone` + `docker/podman build`.
+
+- **Azurite UI** → http://localhost:8086 - przeglądanie kontenerów/blobów (m.in.
+  `tempo-traces`, `loki-chunks`, `mimir-blocks`).
+- Port hosta **10000** (blob) można też podpiąć bezpośrednio z Azure Storage
+  Explorer albo `az storage` CLI, connection string:
+  `DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;`
+  (to publiczne, dobrze znane dane deweloperskie emulatora, nie prawdziwe
+  poświadczenia Azure).
 
 ## Uruchomienie
 
@@ -53,6 +91,9 @@ docker compose up --build
 
 Poczekaj ok. 15-20s po starcie, aż Redpanda i otel-collector w pełni wstaną, zanim wyślesz
 pierwszy request (Kafka topic tworzy się automatycznie przy pierwszej publikacji).
+Tempo/Loki/Mimir startują dopiero po tym, jak `azurite-init` utworzy kontenery
+blobowe w Azurite (`depends_on: service_completed_successfully`), więc pierwszy
+start stosu może potrwać chwilę dłużej.
 
 ### Tests
 ```powershell
@@ -66,6 +107,8 @@ dostajesz `202 Accepted` z `OrderId`.
 3. **Grafana → Explore → Loki** → `{service_name="ServiceA"}` (albo `ServiceB`/`ServiceC`/`ServiceD`) - zobaczysz
    logi `LogInformation` z każdego kroku.
 4. **Grafana → Explore → Mimir** → np. metryka `http_server_request_duration_count`.
+5. **Azurite UI** (http://localhost:8086) - zobaczysz kontenery `tempo-traces`, `loki-chunks`,
+   `mimir-blocks` z realnymi blobami (po chwili od wysłania requestu i ewentualnym flushu/kompakcji).
 
 
 ### Wnioski
