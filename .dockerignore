@@ -1,5 +1,5 @@
-bin/
-obj/
-.idea/
-*.md
-.git
+**/bin/
+**/obj/
+**/.vs/
+**/.idea/
+**/*.user
