@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using Shared.Messaging;
 using Shared.Messaging.Contracts;
 
@@ -10,11 +9,7 @@ public sealed class OrderProcessedConsumer : KafkaConsumerBackgroundService<Orde
     private readonly ILogger<OrderProcessedConsumer> _logger;
 
     public OrderProcessedConsumer(IConfiguration configuration, IHttpClientFactory httpClientFactory, ILogger<OrderProcessedConsumer> logger)
-        : base(
-            configuration["Kafka:BootstrapServers"] ?? "redpanda:9092",
-            groupId: "service-c",
-            topic: KafkaTopics.OrdersProcessed,
-            logger)
+        : base(configuration["Kafka:BootstrapServers"], groupId: "service-c", topic: KafkaTopics.OrdersProcessed)
     {
         _httpClientFactory = httpClientFactory;
         _logger = logger;

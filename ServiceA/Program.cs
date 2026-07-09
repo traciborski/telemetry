@@ -4,10 +4,7 @@ using Shared.Telemetry;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceTelemetry("ServiceA");
-
-var bootstrapServers = builder.Configuration["Kafka:BootstrapServers"]!;
-builder.Services.AddSingleton(sp => new KafkaProducer<OrderCreatedMessage>(bootstrapServers, sp.GetRequiredService<ILogger<KafkaProducer<OrderCreatedMessage>>>()));
-
+builder.Services.AddSingleton(sp => new KafkaProducer<OrderCreatedMessage>(builder.Configuration["Kafka:BootstrapServers"]));
 builder.WebHost.UseUrls("http://*:8080");
 var app = builder.Build();
 
@@ -18,7 +15,5 @@ app.MapPost("/orders", async (OrderRequest request, KafkaProducer<OrderCreatedMe
     await producer.PublishAsync(KafkaTopics.OrdersCreated, message.OrderId.ToString(), message, cancellationToken);
     return Results.Accepted(value: new { message.OrderId });
 });
-
 app.MapGet("/health", () => Results.Ok("healthy"));
-
 app.Run();

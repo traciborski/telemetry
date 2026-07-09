@@ -9,11 +9,7 @@ public sealed class OrderCreatedConsumer : KafkaConsumerBackgroundService<OrderC
     private readonly ILogger<OrderCreatedConsumer> _logger;
 
     public OrderCreatedConsumer(IConfiguration configuration, KafkaProducer<OrderProcessedMessage> producer, ILogger<OrderCreatedConsumer> logger)
-        : base(
-            configuration["Kafka:BootstrapServers"] ?? "redpanda:9092",
-            groupId: "service-b",
-            topic: KafkaTopics.OrdersCreated,
-            logger)
+        : base(configuration["Kafka:BootstrapServers"], groupId: "service-b", topic: KafkaTopics.OrdersCreated)
     {
         _producer = producer;
         _logger = logger;

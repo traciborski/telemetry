@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace Shared.Messaging;
 
@@ -10,15 +9,13 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
     private readonly string _topic;
-    private readonly ILogger _logger;
 
-    protected KafkaConsumerBackgroundService(string bootstrapServers, string groupId, string topic, ILogger logger)
+    protected KafkaConsumerBackgroundService(string? bootstrapServers, string groupId, string topic)
     {
         _topic = topic;
-        _logger = logger;
         _consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
         {
-            BootstrapServers = bootstrapServers,
+            BootstrapServers = bootstrapServers ?? throw new Exception("no kafka"),
             GroupId = groupId,
             AutoOffsetReset = AutoOffsetReset.Earliest,
             EnableAutoCommit = false,
@@ -40,7 +37,11 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
             }
             catch (ConsumeException ex)
             {
-                _logger.LogError(ex, "Error consuming from topic {Topic}", _topic);
+                using var infraActivity = KafkaTelemetry.ActivitySource.StartActivity($"{_topic} consume_error", ActivityKind.Consumer);
+                infraActivity?.SetStatus(ActivityStatusCode.Error, "Kafka connection or consumption failed");
+                infraActivity?.AddException(ex);
+                infraActivity?.SetTag("messaging.destination.name", _topic);
+                infraActivity?.SetTag("error.type", ex.Error.Code.ToString());
                 continue;
             }
 
@@ -59,8 +60,7 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
 
             try
             {
-                var value = JsonSerializer.Deserialize<TValue>(result.Message.Value)
-                    ?? throw new InvalidOperationException($"Could not deserialize message from topic {_topic}");
+                var value = JsonSerializer.Deserialize<TValue>(result.Message.Value) ?? throw new InvalidOperationException($"Could not deserialize message from topic {_topic}");
 
                 await HandleAsync(value, stoppingToken);
                 _consumer.Commit(result);
@@ -68,7 +68,7 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                _logger.LogError(ex, "Error handling message (key={Key}) from topic {Topic}", result.Message.Key, _topic);
+                activity?.AddException(ex);
             }
         }
 

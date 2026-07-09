@@ -8,14 +8,12 @@ namespace Shared.Messaging;
 public sealed class KafkaProducer<TValue> : IDisposable
 {
     private readonly IProducer<string, string> _producer;
-    private readonly ILogger<KafkaProducer<TValue>> _logger;
 
-    public KafkaProducer(string bootstrapServers, ILogger<KafkaProducer<TValue>> logger)
+    public KafkaProducer(string? bootstrapServers)
     {
-        _logger = logger;
         _producer = new ProducerBuilder<string, string>(new ProducerConfig
         {
-            BootstrapServers = bootstrapServers,
+            BootstrapServers = bootstrapServers ?? throw new Exception("no kafka"),
             Acks = Acks.Leader,
         }).Build();
     }
@@ -42,8 +40,6 @@ public sealed class KafkaProducer<TValue> : IDisposable
 
         activity?.SetTag("messaging.kafka.destination.partition", result.Partition.Value);
         activity?.SetTag("messaging.kafka.message.offset", result.Offset.Value);
-
-        _logger.LogInformation("Published {MessageType} (key={Key}) to topic {Topic} [partition {Partition}, offset {Offset}]", typeof(TValue).Name, key, topic, result.Partition.Value, result.Offset.Value);
     }
 
     public void Dispose() => _producer.Dispose();
