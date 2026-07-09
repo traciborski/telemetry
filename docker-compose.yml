@@ -1,7 +1,4 @@
 services:
-  # ---------------------------------------------------------------------------
-  # Kafka (Redpanda is a lightweight, Kafka-API-compatible single-binary broker)
-  # ---------------------------------------------------------------------------
   redpanda:
     image: docker.io/redpandadata/redpanda:latest
     container_name: redpanda
@@ -41,9 +38,6 @@ services:
     depends_on:
       - redpanda
 
-  # ---------------------------------------------------------------------------
-  # Observability backends (Grafana stack)
-  # ---------------------------------------------------------------------------
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-collector
@@ -104,9 +98,6 @@ services:
       - tempo
       - mimir
 
-  # ---------------------------------------------------------------------------
-  # The 4 demo services: ServiceA --http--> kafka --> ServiceB --kafka--> ServiceC --http--> ServiceD
-  # ---------------------------------------------------------------------------
   service-a:
     build:
       context: .

@@ -5,11 +5,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Shared.Messaging;
 
-/// <summary>
-/// Thin wrapper around Confluent.Kafka's IProducer that serializes the value as JSON and wraps each
-/// publish in a "publish" Activity, so it shows up as a span in the distributed trace with the trace
-/// context injected into the Kafka message headers for the consumer to pick up.
-/// </summary>
 public sealed class KafkaProducer<TValue> : IDisposable
 {
     private readonly IProducer<string, string> _producer;
@@ -48,9 +43,7 @@ public sealed class KafkaProducer<TValue> : IDisposable
         activity?.SetTag("messaging.kafka.destination.partition", result.Partition.Value);
         activity?.SetTag("messaging.kafka.message.offset", result.Offset.Value);
 
-        _logger.LogInformation(
-            "Published {MessageType} (key={Key}) to topic {Topic} [partition {Partition}, offset {Offset}]",
-            typeof(TValue).Name, key, topic, result.Partition.Value, result.Offset.Value);
+        _logger.LogInformation("Published {MessageType} (key={Key}) to topic {Topic} [partition {Partition}, offset {Offset}]", typeof(TValue).Name, key, topic, result.Partition.Value, result.Offset.Value);
     }
 
     public void Dispose() => _producer.Dispose();

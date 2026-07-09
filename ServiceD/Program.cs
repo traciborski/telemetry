@@ -9,10 +9,7 @@ var app = builder.Build();
 
 app.MapPost("/notifications", (OrderProcessedMessage message, ILogger<Program> logger) =>
 {
-    logger.LogInformation(
-        "Notification received for order {OrderId} ({Product} x{Quantity})",
-        message.OrderId, message.Product, message.Quantity);
-
+    logger.LogInformation("Notification received for order {OrderId} ({Product} x{Quantity})", message.OrderId, message.Product, message.Quantity);
     return Results.Ok(new { Status = "Delivered", message.OrderId, ReceivedAt = DateTimeOffset.UtcNow });
 });
 

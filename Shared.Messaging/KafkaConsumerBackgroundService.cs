@@ -6,11 +6,6 @@ using Microsoft.Extensions.Logging;
 
 namespace Shared.Messaging;
 
-/// <summary>
-/// Base class for a background Kafka consumer. Subclasses only implement what happens with a
-/// deserialized message; subscribing, polling, trace-context extraction and offset commits all
-/// happen here so every consuming service behaves the same way.
-/// </summary>
 public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
@@ -36,8 +31,6 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
     {
         _consumer.Subscribe(_topic);
 
-        // Confluent.Kafka's consumer has no true async Consume API; a short blocking poll on a
-        // dedicated BackgroundService thread is the standard pattern recommended by Confluent.
         while (!stoppingToken.IsCancellationRequested)
         {
             ConsumeResult<string, string>? result;
@@ -57,8 +50,7 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
             }
 
             var parentContext = KafkaTelemetry.ExtractTraceContext(result.Message.Headers);
-            using var activity = KafkaTelemetry.ActivitySource.StartActivity(
-                $"{_topic} process", ActivityKind.Consumer, parentContext);
+            using var activity = KafkaTelemetry.ActivitySource.StartActivity($"{_topic} process", ActivityKind.Consumer, parentContext);
 
             activity?.SetTag("messaging.system", "kafka");
             activity?.SetTag("messaging.destination.name", _topic);

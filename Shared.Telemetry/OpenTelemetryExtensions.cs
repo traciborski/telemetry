@@ -9,16 +9,8 @@ using OpenTelemetry.Trace;
 
 namespace Shared.Telemetry;
 
-/// <summary>
-/// Single place that wires up OpenTelemetry (logs, traces, metrics) the same way for every service.
-/// Everything is shipped via OTLP to the otel-collector, which fans it out to Tempo, Loki and Mimir.
-/// </summary>
 public static class OpenTelemetryExtensions
 {
-    /// <summary>
-    /// The name of the ActivitySource/Meter used for manual Kafka producer/consumer instrumentation.
-    /// Registered for every service so traces stay connected across HTTP + Kafka hops.
-    /// </summary>
     public const string KafkaActivitySourceName = "Messaging.Kafka";
 
     public static WebApplicationBuilder AddServiceTelemetry(this WebApplicationBuilder builder, string serviceName)

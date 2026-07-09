@@ -3,16 +3,12 @@ using Shared.Messaging.Contracts;
 
 namespace ServiceB;
 
-/// <summary>Consumes "orders.created", simulates some processing work, then publishes "orders.processed".</summary>
 public sealed class OrderCreatedConsumer : KafkaConsumerBackgroundService<OrderCreatedMessage>
 {
     private readonly KafkaProducer<OrderProcessedMessage> _producer;
     private readonly ILogger<OrderCreatedConsumer> _logger;
 
-    public OrderCreatedConsumer(
-        IConfiguration configuration,
-        KafkaProducer<OrderProcessedMessage> producer,
-        ILogger<OrderCreatedConsumer> logger)
+    public OrderCreatedConsumer(IConfiguration configuration, KafkaProducer<OrderProcessedMessage> producer, ILogger<OrderCreatedConsumer> logger)
         : base(
             configuration["Kafka:BootstrapServers"] ?? "redpanda:9092",
             groupId: "service-b",
@@ -25,12 +21,8 @@ public sealed class OrderCreatedConsumer : KafkaConsumerBackgroundService<OrderC
 
     protected override async Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
     {
-        _logger.LogInformation(
-            "Processing order {OrderId} ({Product} x{Quantity})", message.OrderId, message.Product, message.Quantity);
-
-        // Simulate some processing work.
+        _logger.LogInformation("Processing order {OrderId} ({Product} x{Quantity})", message.OrderId, message.Product, message.Quantity);
         await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
-
         var processed = new OrderProcessedMessage(message.OrderId, message.Product, message.Quantity, DateTimeOffset.UtcNow);
         await _producer.PublishAsync(KafkaTopics.OrdersProcessed, processed.OrderId.ToString(), processed, cancellationToken);
     }
