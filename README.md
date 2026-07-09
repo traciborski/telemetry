@@ -11,7 +11,8 @@ HTTP POST /orders          Kafka                    Kafka                HTTP PO
 - **ServiceA** - `POST /orders {product, quantity}` → publikuje `OrderCreatedMessage` na topic `orders.created`.
 - **ServiceB** - konsumuje `orders.created`, "przetwarza" (symulowane opóźnienie), podbija licznik
   `orders:processed:count` w Redisie, publikuje `OrderProcessedMessage` na `orders.processed`.
-- **ServiceC** - konsumuje `orders.processed`, woła `POST /notifications` na ServiceD.
+- **ServiceC** - konsumuje `orders.processed`, woła `POST /notifications` na ServiceD, indeksuje
+  zamówienie w Elasticsearch (`orders-processed`).
 - **ServiceD** - przyjmuje `POST /notifications`, zwraca potwierdzenie.
 
 Cały łańcuch to **jeden spójny trace** w Tempo: `HttpClient`/ASP.NET Core mają propagację
@@ -108,6 +109,23 @@ na hoście):
 - Port hosta **6379** można też podpiąć bezpośrednio z `redis-cli`/RedisInsight:
   `redis-cli -h 127.0.0.1 -p 6379 get orders:processed:count`.
 
+## Elasticsearch (tylko ServiceC)
+
+**ServiceC** dodatkowo indeksuje każde przetworzone zamówienie jako dokument w
+**Elasticsearch** (`docker.elastic.co/elasticsearch/elasticsearch`, jeden węzeł,
+bez security - to dev/POC) w indeksie `orders-processed`. Bez dedykowanego UI
+(świadomie - do sprawdzenia wystarczy REST API).
+
+Instrumentacja OTel działa **wyłącznie w ServiceC**: oficjalny klient
+`Elastic.Clients.Elasticsearch` sam publikuje trace'y przez własny `ActivitySource`
+(`"Elastic.Transport"`), więc wystarczy dopiąć go lokalnie w `ServiceC/Program.cs`
+(`builder.Services.AddOpenTelemetry().WithTracing(t => t.AddSource("Elastic.Transport"))`)
+- tak samo jak w przypadku Redisa w ServiceB, `Shared.Telemetry` nic o
+Elasticsearch nie wie, a pozostałe serwisy nie mają ani pakietu, ani instrumentacji.
+
+- Port hosta **9200** - REST API do szybkiego sprawdzenia:
+  `curl http://localhost:9200/orders-processed/_search?pretty`.
+
 ## Uruchomienie
 
 ```powershell
@@ -137,6 +155,9 @@ dostajesz `202 Accepted` z `OrderId`.
 6. **Redis Commander** (http://localhost:8087) - klucz `orders:processed:count` powinien
    rosnąć o 1 po każdym przetworzonym zamówieniu (widoczne też w spanie Redisa w Tempo
    i w logu ServiceB).
+7. **Elasticsearch** - `curl http://localhost:9200/orders-processed/_search?pretty` powinno
+   zwrócić zaindeksowany dokument zamówienia (widoczne też w spanie `Elastic.Transport`
+   w Tempo i w logu ServiceC).
 
 
 ### Wnioski

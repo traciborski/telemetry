@@ -1,10 +1,22 @@
 using Shared.Telemetry;
 using ServiceC;
+using Elastic.Clients.Elasticsearch;
+using Elastic.Transport;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceTelemetry("ServiceC");
 var serviceDBaseUrl = builder.Configuration["ServiceD:BaseUrl"] ?? "http://service-d:8080";
 builder.Services.AddHttpClient("ServiceD", client => client.BaseAddress = new Uri(serviceDBaseUrl));
+
+var elasticsearchUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://elasticsearch:9200";
+var elasticsearchSettings = new ElasticsearchClientSettings(new Uri(elasticsearchUri)).DefaultIndex("orders-processed");
+builder.Services.AddSingleton(new ElasticsearchClient(elasticsearchSettings));
+
+// Elastic.Clients.Elasticsearch publikuje wlasny ActivitySource ("Elastic.Transport"), wiec
+// wystarczy dopiac go do juz skonfigurowanego TracerProvider - dzieki temu instrumentacja
+// Elasticsearcha dziala tylko w ServiceC, bez zmian w Shared.Telemetry.
+builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing.AddSource("Elastic.Transport"));
+
 builder.Services.AddHostedService<OrderProcessedConsumer>();
 builder.WebHost.UseUrls("http://*:8080");
 var app = builder.Build();

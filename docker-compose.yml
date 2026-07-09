@@ -107,6 +107,25 @@ services:
     depends_on:
       - redis
 
+  # Elasticsearch - używany przez ServiceC do indeksowania przetworzonych zamówień. Bez UI (świadomie).
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200" # np. curl http://localhost:9200/orders-processed/_search
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -sf http://127.0.0.1:9200/_cluster/health || exit 1
+      interval: 5s
+      retries: 60
+      start_period: 30s
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-collector
@@ -217,10 +236,12 @@ services:
       - Kafka__BootstrapServers=redpanda:9092
       - Otel__Endpoint=http://otel-collector:4317
       - ServiceD__BaseUrl=http://service-d:8080
+      - Elasticsearch__Uri=http://elasticsearch:9200
     depends_on:
       - redpanda
       - otel-collector
       - service-d
+      - elasticsearch
 
   service-d:
     build:
@@ -239,6 +260,7 @@ volumes:
   azurite-data:
   azurite-ui-data:
   redis-data:
+  elasticsearch-data:
   tempo-data:
   loki-data:
   mimir-data:

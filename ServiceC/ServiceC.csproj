@@ -5,6 +5,11 @@
     <ProjectReference Include="..\Shared.Messaging\Shared.Messaging.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Elasticsearch dodany tylko w ServiceC - to jedyny serwis, ktory z niego korzysta. -->
+    <PackageReference Include="Elastic.Clients.Elasticsearch" Version="8.17.4" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
