@@ -87,6 +87,26 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
 
+  # Redis - używany przez ServiceB do prostego licznika przetworzonych zamówień.
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  # Redis Commander - lekki webowy podgląd kluczy/wartości Redisa.
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8087:8081" # http://localhost:8087 - przeglądanie kluczy Redisa
+    depends_on:
+      - redis
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-collector
@@ -180,9 +200,11 @@ services:
     environment:
       - Kafka__BootstrapServers=redpanda:9092
       - Otel__Endpoint=http://otel-collector:4317
+      - Redis__ConnectionString=redis:6379
     depends_on:
       - redpanda
       - otel-collector
+      - redis
 
   service-c:
     build:
@@ -216,6 +238,7 @@ volumes:
   redpanda-data:
   azurite-data:
   azurite-ui-data:
+  redis-data:
   tempo-data:
   loki-data:
   mimir-data:

@@ -9,7 +9,8 @@ HTTP POST /orders          Kafka                    Kafka                HTTP PO
 ```
 
 - **ServiceA** - `POST /orders {product, quantity}` → publikuje `OrderCreatedMessage` na topic `orders.created`.
-- **ServiceB** - konsumuje `orders.created`, "przetwarza" (symulowane opóźnienie), publikuje `OrderProcessedMessage` na `orders.processed`.
+- **ServiceB** - konsumuje `orders.created`, "przetwarza" (symulowane opóźnienie), podbija licznik
+  `orders:processed:count` w Redisie, publikuje `OrderProcessedMessage` na `orders.processed`.
 - **ServiceC** - konsumuje `orders.processed`, woła `POST /notifications` na ServiceD.
 - **ServiceD** - przyjmuje `POST /notifications`, zwraca potwierdzenie.
 
@@ -83,6 +84,30 @@ rejestru kontenerów, tylko od zwykłego `git clone` + `docker/podman build`.
   (to publiczne, dobrze znane dane deweloperskie emulatora, nie prawdziwe
   poświadczenia Azure).
 
+## Redis (tylko ServiceB)
+
+**ServiceB** dodatkowo łączy się z **Redisem** (`redis:7-alpine`) i przy każdym
+przetworzonym zamówieniu podbija prosty licznik `orders:processed:count`
+(`StringIncrementAsync`) - efekt widać w logach ServiceB (`Redis counter ... is now ...`)
+i bezpośrednio w Redisie.
+
+Redis jest instrumentowany OpenTelemetry (`OpenTelemetry.Instrumentation.StackExchangeRedis`)
+**wyłącznie w ServiceB** - to jedyny serwis, który go używa. Pozostałe 3 serwisy nie mają
+ani pakietu Redis, ani jego instrumentacji; `Shared.Telemetry` (wspólna konfiguracja OTel)
+też nie zna Redisa - instrumentacja jest dokładana lokalnie w `ServiceB/Program.cs`
+(`builder.Services.AddOpenTelemetry().WithTracing(t => t.AddRedisInstrumentation(redisConnection))`),
+dzięki czemu spany zapytań do Redisa trafiają do tego samego trace'u co reszta łańcucha
+(widoczne w Tempo obok spanów HTTP/Kafka dla ServiceB).
+
+Do podglądu zawartości Redisa służy **[Redis Commander](https://github.com/joeferner/redis-commander)**
+- lekka, webowa konsola do przeglądania kluczy/wartości (bez instalowania czegokolwiek
+na hoście):
+
+- **Redis Commander** → http://localhost:8087 - podgląd klucza `orders:processed:count`
+  i jego wartości na żywo.
+- Port hosta **6379** można też podpiąć bezpośrednio z `redis-cli`/RedisInsight:
+  `redis-cli -h 127.0.0.1 -p 6379 get orders:processed:count`.
+
 ## Uruchomienie
 
 ```powershell
@@ -109,6 +134,9 @@ dostajesz `202 Accepted` z `OrderId`.
 4. **Grafana → Explore → Mimir** → np. metryka `http_server_request_duration_count`.
 5. **Azurite UI** (http://localhost:8086) - zobaczysz kontenery `tempo-traces`, `loki-chunks`,
    `mimir-blocks` z realnymi blobami (po chwili od wysłania requestu i ewentualnym flushu/kompakcji).
+6. **Redis Commander** (http://localhost:8087) - klucz `orders:processed:count` powinien
+   rosnąć o 1 po każdym przetworzonym zamówieniu (widoczne też w spanie Redisa w Tempo
+   i w logu ServiceB).
 
 
 ### Wnioski
