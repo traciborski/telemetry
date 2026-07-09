@@ -126,6 +126,24 @@ services:
       retries: 60
       start_period: 30s
 
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+    ports:
+      - "1433:1433" # np. sqlcmd/Azure Data Studio: sa / YourStrong!Passw0rd
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: >
+        /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null ||
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      retries: 20
+      start_period: 20s
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:latest
     container_name: otel-collector
@@ -252,8 +270,12 @@ services:
       - "8084:8080"
     environment:
       - Otel__Endpoint=http://otel-collector:4317
+      - Sql__ConnectionString=Server=sqlserver;Database=master;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;
     depends_on:
-      - otel-collector
+      otel-collector:
+        condition: service_started
+      sqlserver:
+        condition: service_healthy
 
 volumes:
   redpanda-data:
@@ -261,6 +283,7 @@ volumes:
   azurite-ui-data:
   redis-data:
   elasticsearch-data:
+  sqlserver-data:
   tempo-data:
   loki-data:
   mimir-data:

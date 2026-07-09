@@ -13,7 +13,8 @@ HTTP POST /orders          Kafka                    Kafka                HTTP PO
   `orders:processed:count` w Redisie, publikuje `OrderProcessedMessage` na `orders.processed`.
 - **ServiceC** - konsumuje `orders.processed`, woła `POST /notifications` na ServiceD, indeksuje
   zamówienie w Elasticsearch (`orders-processed`).
-- **ServiceD** - przyjmuje `POST /notifications`, zwraca potwierdzenie.
+- **ServiceD** - przyjmuje `POST /notifications`, dopytuje SQL Server (EF Core, `SELECT GETDATE()`)
+  o czas serwera, zwraca potwierdzenie.
 
 Cały łańcuch to **jeden spójny trace** w Tempo: `HttpClient`/ASP.NET Core mają propagację
 `traceparent` "za darmo" (wbudowana instrumentacja), a Kafka - która nie ma automatycznej
@@ -126,6 +127,21 @@ Elasticsearch nie wie, a pozostałe serwisy nie mają ani pakietu, ani instrumen
 - Port hosta **9200** - REST API do szybkiego sprawdzenia:
   `curl http://localhost:9200/orders-processed/_search?pretty`.
 
+## SQL Server / EF Core (tylko ServiceD)
+
+**ServiceD** dodatkowo łączy się z **SQL Serverem** (`mcr.microsoft.com/mssql/server`) przez
+**EF Core**, ale celowo bez żadnych encji/`DbSet`/migracji - `AppDbContext` jest pusty,
+a jedyne co robi to `db.Database.SqlQueryRaw<DateTime>("SELECT GETDATE() AS Value")`
+przy każdym `POST /notifications`, żeby pokazać integrację EF Core + OTel na absolutnym minimum.
+
+Instrumentacja OTel (`OpenTelemetry.Instrumentation.EntityFrameworkCore`) działa **wyłącznie
+w ServiceD** - tak samo jak Redis w ServiceB i Elasticsearch w ServiceC: dokładana lokalnie
+w `ServiceD/Program.cs` (`builder.Services.AddOpenTelemetry().WithTracing(t => t.AddEntityFrameworkCoreInstrumentation())`),
+`Shared.Telemetry` i pozostałe serwisy nic o SQL Serverze nie wiedzą.
+
+- Port hosta **1433** - `sa` / `YourStrong!Passw0rd` (SQL Server Management Studio, Azure Data
+  Studio albo `sqlcmd`). Bez dedykowanego UI w tym repo.
+
 ## Uruchomienie
 
 ```powershell
@@ -158,6 +174,9 @@ dostajesz `202 Accepted` z `OrderId`.
 7. **Elasticsearch** - `curl http://localhost:9200/orders-processed/_search?pretty` powinno
    zwrócić zaindeksowany dokument zamówienia (widoczne też w spanie `Elastic.Transport`
    w Tempo i w logu ServiceC).
+8. **SQL Server / EF Core** - odpowiedź `POST /orders` (a właściwie log/trace ServiceD) powinna
+   zawierać `SqlServerTime` z realnym czasem z SQL Servera (widoczne też w spanie EF Core
+   w Tempo i w logu ServiceD: `SQL Server time is ...`).
 
 
 ### Wnioski
