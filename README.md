@@ -173,7 +173,9 @@ start stosu może potrwać chwilę dłużej.
 
 ### Tests
 ```powershell
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8081/orders" -ContentType "application/json" -Body '{"product":"Widget","quantity":3}'
+1..50 | ForEach-Object {
+    Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8081/orders" -ContentType "application/json" -Body '{"product":"Widget","quantity":3}'
+}
 ```
 
 dostajesz `202 Accepted` z `OrderId`. 
@@ -203,10 +205,9 @@ dostajesz `202 Accepted` z `OrderId`.
 
 ### Wnioski
 Libki nie powinny robic logow, tylko trace'y (moze wyjatek dla exceptionow niektorych?).
-OTL trace = Appinsights dependency = dotnet Activity
+OTel Span (in Traces) = AppInsights Dependency OR Request = .NET Activity 
 Serilog niepotrzebny
-traces SetStatus i RecordException
-jakie libki / potrzebujemy?
-   jakis helper dla libek?
+Traces SetStatus i RecordException
+jakie libki / potrzebujemy? jakis helper dla libek?
 tooling
 kusto
