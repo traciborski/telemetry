@@ -16,6 +16,11 @@ var app = builder.Build();
 
 app.MapPost("/notifications", async (OrderProcessedMessage message, AppDbContext db, ILogger<Program> logger) =>
 {
+    if (Random.Shared.Next(10) == 0)
+    {
+        throw new InvalidOperationException($"Simulated failure while processing notification for order {message.OrderId}");
+    }
+
     logger.LogInformation("Notification received for order {OrderId} ({Product} x{Quantity})", message.OrderId, message.Product, message.Quantity);
     var serverTime = await db.Database.SqlQueryRaw<DateTime>("SELECT GETDATE() AS Value").SingleAsync();
     logger.LogInformation("SQL Server time is {ServerTime}", serverTime);

@@ -6,8 +6,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Elasticsearch dodany tylko w ServiceC - to jedyny serwis, ktory z niego korzysta. -->
     <PackageReference Include="Elastic.Clients.Elasticsearch" Version="8.17.4" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.7.0" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -11,10 +11,11 @@ HTTP POST /orders          Kafka                    Kafka                HTTP PO
 - **ServiceA** - `POST /orders {product, quantity}` → publikuje `OrderCreatedMessage` na topic `orders.created`.
 - **ServiceB** - konsumuje `orders.created`, "przetwarza" (symulowane opóźnienie), podbija licznik
   `orders:processed:count` w Redisie, publikuje `OrderProcessedMessage` na `orders.processed`.
-- **ServiceC** - konsumuje `orders.processed`, woła `POST /notifications` na ServiceD, indeksuje
-  zamówienie w Elasticsearch (`orders-processed`).
-- **ServiceD** - przyjmuje `POST /notifications`, dopytuje SQL Server (EF Core, `SELECT GETDATE()`)
-  o czas serwera, zwraca potwierdzenie.
+- **ServiceC** - konsumuje `orders.processed`, woła `POST /notifications` na ServiceD (z retry -
+  patrz niżej), indeksuje zamówienie w Elasticsearch (`orders-processed`).
+- **ServiceD** - przyjmuje `POST /notifications`, ~1 na 10 requestów celowo failuje (HTTP 500),
+  w pozostałych przypadkach dopytuje SQL Server (EF Core, `SELECT GETDATE()`) o czas serwera
+  i zwraca potwierdzenie.
 
 Cały łańcuch to **jeden spójny trace** w Tempo: `HttpClient`/ASP.NET Core mają propagację
 `traceparent` "za darmo" (wbudowana instrumentacja), a Kafka - która nie ma automatycznej
@@ -142,6 +143,22 @@ w `ServiceD/Program.cs` (`builder.Services.AddOpenTelemetry().WithTracing(t => t
 - Port hosta **1433** - `sa` / `YourStrong!Passw0rd` (SQL Server Management Studio, Azure Data
   Studio albo `sqlcmd`). Bez dedykowanego UI w tym repo.
 
+## Symulowane błędy i retry (ServiceD ↔ ServiceC)
+
+Żeby pokazać obsługę błędów w łańcuchu, **ServiceD** losowo (`Random.Shared.Next(10) == 0`,
+czyli średnio 1 na 10 requestów) **rzuca wyjątek** (`InvalidOperationException`) zamiast
+normalnie przetwarzać `POST /notifications` - to realistyczniej odwzorowuje prawdziwą awarię
+niż ręczne zwracanie `500`: ASP.NET Core samo zamienia nieobsłużony wyjątek na `500` i loguje
+go (Error, ze stack trace'em) do Loki, a Tempo oznacza span jako błąd - bez dodatkowego kodu
+telemetrycznego z naszej strony.
+
+**ServiceC** ma na to retry - `Microsoft.Extensions.Http.Resilience` (Polly v8) skonfigurowany
+tylko na `HttpClient`-cie do ServiceD (`AddResilienceHandler("service-d-retry", ...)` w
+`ServiceC/Program.cs`): 3 próby ponowienia z exponential backoffem, zanim wyjątek poleci dalej.
+Dzięki temu pojedynczy losowy fail w ServiceD zwykle nie jest w ogóle widoczny na zewnątrz -
+w logach/trace'ach ServiceC widać próby ponowienia (spany/logi Polly), a w Tempo kilka
+kolejnych wywołań HTTP do ServiceD w ramach tego samego trace'u.
+
 ## Uruchomienie
 
 ```powershell
@@ -177,6 +194,11 @@ dostajesz `202 Accepted` z `OrderId`.
 8. **SQL Server / EF Core** - odpowiedź `POST /orders` (a właściwie log/trace ServiceD) powinna
    zawierać `SqlServerTime` z realnym czasem z SQL Servera (widoczne też w spanie EF Core
    w Tempo i w logu ServiceD: `SQL Server time is ...`).
+9. **Retry ServiceC → ServiceD** - wyślij kilka(naście) requestów pod rząd; od czasu do czasu
+   w logu ServiceD zobaczysz `Unhandled exception... Simulated failure while processing
+   notification for order ...` (ze stack trace'em), a mimo to cały łańcuch i tak kończy się
+   sukcesem (retry w ServiceC to ukrywa) - widoczne też jako kilka prób HTTP do ServiceD
+   w tym samym trace w Tempo (span ServiceD oznaczony jako błąd przy nieudanej próbie).
 
 
 ### Wnioski

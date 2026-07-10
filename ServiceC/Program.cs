@@ -2,11 +2,22 @@ using Shared.Telemetry;
 using ServiceC;
 using Elastic.Clients.Elasticsearch;
 using Elastic.Transport;
+using Microsoft.Extensions.Http.Resilience;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceTelemetry("ServiceC");
 var serviceDBaseUrl = builder.Configuration["ServiceD:BaseUrl"] ?? "http://service-d:8080";
-builder.Services.AddHttpClient("ServiceD", client => client.BaseAddress = new Uri(serviceDBaseUrl));
+builder.Services.AddHttpClient("ServiceD", client => client.BaseAddress = new Uri(serviceDBaseUrl))
+    .AddResilienceHandler("service-d-retry", resilience =>
+    {
+        resilience.AddRetry(new HttpRetryStrategyOptions
+        {
+            MaxRetryAttempts = 3,
+            BackoffType = DelayBackoffType.Exponential,
+            Delay = TimeSpan.FromMilliseconds(200)
+        });
+    });
 
 var elasticsearchUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://elasticsearch:9200";
 var elasticsearchSettings = new ElasticsearchClientSettings(new Uri(elasticsearchUri)).DefaultIndex("orders-processed");
