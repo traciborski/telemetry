@@ -12,15 +12,15 @@
 
 ## Stack OTL
 
-| Sygnał  | Backend | Storage | Port UI |
+| Sygnał  | Backend | Storage | Port UI 
 |---------|---------|---------|-------------------
-| Traces  | Tempo   | Blobs   | Grafana → Explore |
-| Logs    | Loki    | Blobs   | Grafana → Explore |
-| Metrics | Mimir   | Blobs   | Grafana → Explore |
+| Traces  | Tempo   | Blobs   | Grafana 
+| Logs    | Loki    | Blobs   | Grafana 
+| Metrics | Mimir   | Blobs   | Grafana 
 
 ```powershell
 podman compose up -d --build
-podman compose up --build -d --force-recreate
+podman compose up --detach --build --force-recreate
 ```
 
 ## Testy
@@ -29,10 +29,10 @@ podman compose up --build -d --force-recreate
 ```
 
 ## Wnioski
-* Libki nie powinny robic logow, tylko trace'y (moze wyjatek dla exceptionow niektorych?).
+* Libki nie powinny robic logow, tylko trace'y
 * OTel Span (in Traces) = AppInsights Dependency OR Request = .NET Activity
 * Serilog niepotrzebny
 * mozna zrobic SetStatus i RecordException na Trace'ach
 * jakie libki / potrzebujemy? jakis helper dla libek?
 * tooling / dashboards / guidelines needed
-* no kusto => LogQL+ PromQL + TraceQL
+  * no kusto => LogQL + PromQL + TraceQL
