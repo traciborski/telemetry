@@ -35,10 +35,19 @@ public sealed class KafkaProducer<TValue> : IDisposable
             Headers = headers,
         };
 
-        var result = await _producer.ProduceAsync(topic, message, cancellationToken);
+        try
+        {
+            var result = await _producer.ProduceAsync(topic, message, cancellationToken);
 
-        activity?.SetTag("messaging.kafka.destination.partition", result.Partition.Value);
-        activity?.SetTag("messaging.kafka.message.offset", result.Offset.Value);
+            activity?.SetTag("messaging.kafka.destination.partition", result.Partition.Value);
+            activity?.SetTag("messaging.kafka.message.offset", result.Offset.Value);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+            throw;
+        }
     }
 
     public void Dispose() => _producer.Dispose();

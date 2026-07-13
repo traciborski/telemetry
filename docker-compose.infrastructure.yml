@@ -1,0 +1,222 @@
+services:
+  redpanda:
+    image: docker.io/redpandadata/redpanda:latest
+    container_name: redpanda
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:18082
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --default-log-level=info
+    ports:
+      - "19092:19092"
+      - "18081:18081"
+      - "18082:18082"
+      - "19644:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+
+  redpanda-console:
+    image: docker.io/redpandadata/console:latest
+    container_name: redpanda-console
+    entrypoint: /bin/sh
+    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml; /app/console'
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda:9092"]
+    ports:
+      - "8085:8080"
+    depends_on:
+      - redpanda
+
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: azurite
+    command: "azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --loose --skipApiVersionCheck"
+    volumes:
+      - azurite-data:/data
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    healthcheck:
+      test: nc 127.0.0.1 10000 -z
+      interval: 2s
+      retries: 20
+
+  azurite-init:
+    image: mcr.microsoft.com/azure-cli:latest
+    container_name: azurite-init
+    depends_on:
+      azurite:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      "az storage container create --name loki-chunks --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\" &&
+       az storage container create --name mimir-blocks --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\" &&
+       az storage container create --name mimir-ruler --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\" &&
+       az storage container create --name tempo-traces --connection-string \"$$AZURE_STORAGE_CONNECTION_STRING\""
+    environment:
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+
+  azurite-ui:
+    build:
+      context: https://github.com/adrianhall/azurite-ui.git#main
+      dockerfile: Dockerfile
+    container_name: azurite-ui
+    restart: unless-stopped
+    ports:
+      - "8086:8080"
+    depends_on:
+      azurite:
+        condition: service_healthy
+    volumes:
+      - azurite-ui-data:/app/data
+    environment:
+      - ConnectionStrings__Azurite=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      - ConnectionStrings__CacheDatabase=Data Source=/app/data/cache.db;Mode=ReadWriteCreate;Cache=Shared;Foreign Keys=True;
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8087:8081"
+    depends_on:
+      - redis
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: curl -sf http://127.0.0.1:9200/_cluster/health || exit 1
+      interval: 5s
+      retries: 60
+      start_period: 30s
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: >
+        /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null ||
+        /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -Q "SELECT 1" -b -o /dev/null
+      interval: 10s
+      retries: 20
+      start_period: 20s
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      - tempo
+      - loki
+      - mimir
+
+  tempo:
+    image: docker.io/grafana/tempo:2.6.1
+    container_name: tempo
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./observability/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/tempo
+    ports:
+      - "3200:3200"
+    depends_on:
+      azurite-init:
+        condition: service_completed_successfully
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    command: -config.file=/etc/loki-config.yaml
+    volumes:
+      - ./observability/loki-config.yaml:/etc/loki-config.yaml
+      - loki-data:/tmp/loki
+    ports:
+      - "3100:3100"
+    depends_on:
+      azurite-init:
+        condition: service_completed_successfully
+
+  mimir:
+    image: grafana/mimir:latest
+    container_name: mimir
+    command: ["-config.file=/etc/mimir.yaml"]
+    volumes:
+      - ./observability/mimir.yaml:/etc/mimir.yaml
+      - mimir-data:/tmp/mimir
+    ports:
+      - "9009:9009"
+    depends_on:
+      azurite-init:
+        condition: service_completed_successfully
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - loki
+      - tempo
+      - mimir
+
+volumes:
+  redpanda-data:
+  azurite-data:
+  azurite-ui-data:
+  redis-data:
+  elasticsearch-data:
+  sqlserver-data:
+  tempo-data:
+  loki-data:
+  mimir-data:

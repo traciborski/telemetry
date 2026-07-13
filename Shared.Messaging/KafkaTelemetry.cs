@@ -1,14 +1,13 @@
 using System.Diagnostics;
 using System.Text;
 using Confluent.Kafka;
-using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 
 namespace Shared.Messaging;
 
 public static class KafkaTelemetry
 {
-    public static readonly ActivitySource ActivitySource = new("Messaging.Kafka");
+    public static readonly ActivitySource ActivitySource = new("Messaging.Kafka"); // MyCompany.MyProduct.MyLibrary
 
     private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 
@@ -19,15 +18,11 @@ public static class KafkaTelemetry
             return;
         }
 
-        Propagator.Inject(new PropagationContext(activity.Context, Baggage.Current), headers, InjectHeader);
+        Propagator.Inject(new PropagationContext(activity.Context, default), headers, InjectHeader);
     }
 
-    public static ActivityContext ExtractTraceContext(Headers headers)
-    {
-        var propagationContext = Propagator.Extract(default, headers, ExtractHeader);
-        Baggage.Current = propagationContext.Baggage;
-        return propagationContext.ActivityContext;
-    }
+    public static ActivityContext ExtractTraceContext(Headers headers) =>
+        Propagator.Extract(default, headers, ExtractHeader).ActivityContext;
 
     private static void InjectHeader(Headers headers, string key, string value)
         => headers.Add(key, Encoding.UTF8.GetBytes(value));

@@ -18,9 +18,18 @@
 | Logs    | Loki    | Blobs   | Grafana 
 | Metrics | Mimir   | Blobs   | Grafana 
 
+## Uruchamianie
+
 ```powershell
-podman compose up -d --build
-podman compose up --detach --build --force-recreate
+podman compose -f docker-compose.infrastructure.yml up -d
+```
+
+```powershell
+.\start-services.ps1
+```
+
+```powershell
+docker compose up --detach --no-deps --build service-a service-b service-c service-d
 ```
 
 ## Testy
@@ -36,3 +45,4 @@ podman compose up --detach --build --force-recreate
 * jakie libki / potrzebujemy? jakis helper dla libek?
 * tooling / dashboards / guidelines needed
   * no kusto => LogQL + PromQL + TraceQL
+* Kafka propaguje tylko `ActivityContext`; Baggage nie jest używane.

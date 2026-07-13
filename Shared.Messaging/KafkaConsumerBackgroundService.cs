@@ -52,22 +52,6 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
     {
         var batch = new List<ConsumeResult<string, string>>(_batchSize);
 
-        while (batch.Count == 0 && !stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                var result = _consumer.Consume(TimeSpan.FromSeconds(1));
-                if (result?.Message is not null)
-                {
-                    batch.Add(result);
-                }
-            }
-            catch (ConsumeException ex)
-            {
-                RecordConsumeError(ex);
-            }
-        }
-
         while (batch.Count < _batchSize && !stoppingToken.IsCancellationRequested)
         {
             try
@@ -133,7 +117,8 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
 
         try
         {
-            var value = JsonSerializer.Deserialize<TValue>(result.Message.Value) ?? throw new InvalidOperationException($"not deserialized from {_topic}");
+            var value = JsonSerializer.Deserialize<TValue>(result.Message.Value)
+                ?? throw new InvalidOperationException($"Could not deserialize message from topic {_topic}");
             await Handle(value, stoppingToken);
             return new MessageProcessingResult(result, Succeeded: true);
         }

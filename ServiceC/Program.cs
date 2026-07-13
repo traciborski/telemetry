@@ -23,9 +23,6 @@ var elasticsearchUri = builder.Configuration["Elasticsearch:Uri"] ?? "http://ela
 var elasticsearchSettings = new ElasticsearchClientSettings(new Uri(elasticsearchUri)).DefaultIndex("orders-processed");
 builder.Services.AddSingleton(new ElasticsearchClient(elasticsearchSettings));
 
-// Elastic.Clients.Elasticsearch publikuje wlasny ActivitySource ("Elastic.Transport"), wiec
-// wystarczy dopiac go do juz skonfigurowanego TracerProvider - dzieki temu instrumentacja
-// Elasticsearcha dziala tylko w ServiceC, bez zmian w Shared.Telemetry.
 builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing.AddSource("Elastic.Transport"));
 
 builder.Services.AddHostedService<OrderProcessedConsumer>();
