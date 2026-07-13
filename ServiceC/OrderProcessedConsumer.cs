@@ -18,7 +18,7 @@ public sealed class OrderProcessedConsumer : KafkaConsumerBackgroundService<Orde
         _logger = logger;
     }
 
-    protected override async Task HandleAsync(OrderProcessedMessage message, CancellationToken cancellationToken)
+    protected override async Task Handle(OrderProcessedMessage message, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Forwarding processed order {OrderId} ({Product} x{Quantity}) to ServiceD", message.OrderId, message.Product, message.Quantity);
         var client = _httpClientFactory.CreateClient("ServiceD");

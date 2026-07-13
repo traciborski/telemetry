@@ -20,7 +20,7 @@ public sealed class OrderCreatedConsumer : KafkaConsumerBackgroundService<OrderC
         _logger = logger;
     }
 
-    protected override async Task HandleAsync(OrderCreatedMessage message, CancellationToken cancellationToken)
+    protected override async Task Handle(OrderCreatedMessage message, CancellationToken cancellationToken)
     {
         _logger.LogInformation("Processing order {OrderId} ({Product} x{Quantity})", message.OrderId, message.Product, message.Quantity);
         await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
