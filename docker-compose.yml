@@ -16,10 +16,10 @@ services:
       - --smp 1
       - --default-log-level=info
     ports:
-      - "19092:19092" # Kafka API (from the host)
-      - "18081:18081" # Schema registry
-      - "18082:18082" # HTTP proxy
-      - "19644:9644"  # Admin API
+      - "19092:19092" 
+      - "18081:18081" 
+      - "18082:18082" 
+      - "19644:9644"  
     volumes:
       - redpanda-data:/var/lib/redpanda/data
 
@@ -34,7 +34,7 @@ services:
         kafka:
           brokers: ["redpanda:9092"]
     ports:
-      - "8085:8080" # Browse topics/messages at http://localhost:8085
+      - "8085:8080"
     depends_on:
       - redpanda
 
@@ -45,9 +45,9 @@ services:
     volumes:
       - azurite-data:/data
     ports:
-      - "10000:10000" # Blob service
-      - "10001:10001" # Queue service
-      - "10002:10002" # Table service
+      - "10000:10000" 
+      - "10001:10001" 
+      - "10002:10002" 
     healthcheck:
       test: nc 127.0.0.1 10000 -z
       interval: 2s
@@ -75,19 +75,18 @@ services:
     container_name: azurite-ui
     restart: unless-stopped
     ports:
-      - "8086:8080" # http://localhost:8086 - przeglądanie kontenerów/blobów Azurite
+      - "8086:8080"
     depends_on:
       azurite:
         condition: service_healthy
     volumes:
-      - azurite-ui-data:/app/data # cache SQLite azurite-ui
+      - azurite-ui-data:/app/data 
     environment:
       - ConnectionStrings__Azurite=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
       - ConnectionStrings__CacheDatabase=Data Source=/app/data/cache.db;Mode=ReadWriteCreate;Cache=Shared;Foreign Keys=True;
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
 
-  # Redis - używany przez ServiceB do prostego licznika przetworzonych zamówień.
   redis:
     image: redis:7-alpine
     container_name: redis
@@ -96,18 +95,6 @@ services:
     volumes:
       - redis-data:/data
 
-  # Redis Commander - lekki webowy podgląd kluczy/wartości Redisa.
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: redis-commander
-    environment:
-      - REDIS_HOSTS=local:redis:6379
-    ports:
-      - "8087:8081" # http://localhost:8087 - przeglądanie kluczy Redisa
-    depends_on:
-      - redis
-
-  # Elasticsearch - używany przez ServiceC do indeksowania przetworzonych zamówień. Bez UI (świadomie).
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.17.4
     container_name: elasticsearch
@@ -117,7 +104,7 @@ services:
       - xpack.security.enrollment.enabled=false
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
     ports:
-      - "9200:9200" # np. curl http://localhost:9200/orders-processed/_search
+      - "9200:9200"
     volumes:
       - elasticsearch-data:/usr/share/elasticsearch/data
     healthcheck:
@@ -133,7 +120,7 @@ services:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
     ports:
-      - "1433:1433" # np. sqlcmd/Azure Data Studio: sa / YourStrong!Passw0rd
+      - "1433:1433"
     volumes:
       - sqlserver-data:/var/opt/mssql
     healthcheck:
@@ -151,8 +138,8 @@ services:
     volumes:
       - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     ports:
-      - "4317:4317" # OTLP gRPC receiver (used by the 4 services)
-      - "4318:4318" # OTLP HTTP receiver
+      - "4317:4317"
+      - "4318:4318"
     depends_on:
       - tempo
       - loki
@@ -164,9 +151,9 @@ services:
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
       - ./observability/tempo.yaml:/etc/tempo.yaml
-      - tempo-data:/var/tempo # tylko WAL/scratch - trace'y po flushu lądują w Azurite
+      - tempo-data:/var/tempo 
     ports:
-      - "3200:3200" # Tempo query API
+      - "3200:3200" 
     depends_on:
       azurite-init:
         condition: service_completed_successfully
@@ -177,7 +164,7 @@ services:
     command: -config.file=/etc/loki-config.yaml
     volumes:
       - ./observability/loki-config.yaml:/etc/loki-config.yaml
-      - loki-data:/tmp/loki # tylko WAL/cache - chunki i indeks lądują w Azurite
+      - loki-data:/tmp/loki
     ports:
       - "3100:3100"
     depends_on:
@@ -190,7 +177,7 @@ services:
     command: ["-config.file=/etc/mimir.yaml"]
     volumes:
       - ./observability/mimir.yaml:/etc/mimir.yaml
-      - mimir-data:/tmp/mimir # tylko sync/scratch - bloki lądują w Azurite
+      - mimir-data:/tmp/mimir 
     ports:
       - "9009:9009"
     depends_on:
@@ -201,7 +188,7 @@ services:
     image: grafana/grafana:latest
     container_name: grafana
     ports:
-      - "3000:3000" # http://localhost:3000 (admin/admin)
+      - "3000:3000" 
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_AUTH_ANONYMOUS_ENABLED=true
@@ -219,7 +206,7 @@ services:
       dockerfile: ServiceA/Dockerfile
     container_name: service-a
     ports:
-      - "8081:8080" # POST http://localhost:8081/orders
+      - "8081:8080"
     environment:
       - Kafka__BootstrapServers=redpanda:9092
       - Otel__Endpoint=http://otel-collector:4317

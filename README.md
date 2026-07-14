@@ -21,15 +21,7 @@
 ## Uruchamianie
 
 ```powershell
-podman compose -f docker-compose.infrastructure.yml up -d
-```
-
-```powershell
-.\start-services.ps1
-```
-
-```powershell
-docker compose up --detach --no-deps --build service-a service-b service-c service-d
+podman compose up -d --force-recreate
 ```
 
 ## Testy
@@ -38,11 +30,11 @@ docker compose up --detach --no-deps --build service-a service-b service-c servi
 ```
 
 ## Wnioski
-* Libki nie powinny robic logow, tylko trace'y
+* Libki nie powinny robic logow, tylko trace'y (a replicator?)
 * OTel Span (in Traces) = AppInsights Dependency OR Request = .NET Activity
 * Serilog niepotrzebny
 * mozna zrobic SetStatus i RecordException na Trace'ach
 * jakie libki / potrzebujemy? jakis helper dla libek?
 * tooling / dashboards / guidelines needed
   * no kusto => LogQL + PromQL + TraceQL
-* Kafka propaguje tylko `ActivityContext`; Baggage nie jest używane.
+* Kafka propaguje `ActivityContext`; Baggage nie jest używane.
