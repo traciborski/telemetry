@@ -1,16 +1,20 @@
 using System.Diagnostics;
 using System.Text;
-using System.Text.Json;
 using Confluent.Kafka;
 using OpenTelemetry.Context.Propagation;
 
 namespace Shared.Messaging;
 
-public static class KafkaTelemetry
+public static class MessagingTelemetry
 {
     public static readonly ActivitySource ActivitySource = new("Messaging.Kafka"); // MyCompany.MyProduct.MyLibrary
 
     private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
+
+    public static void InjectTraceContext(Headers headers)
+    {
+        InjectTraceContext(Activity.Current, headers);
+    }
 
     public static void InjectTraceContext(Activity? activity, Headers headers)
     {
@@ -25,23 +29,32 @@ public static class KafkaTelemetry
     public static ActivityContext ExtractTraceContext(Headers headers) =>
         Propagator.Extract(default, headers, ExtractHeader).ActivityContext;
 
-    public static string SerializeHeaders(Headers headers)
-    {
-        var entries = headers.Select(header => new HeaderEntry(header.Key, Convert.ToBase64String(header.GetValueBytes()))).ToArray();
-        return JsonSerializer.Serialize(entries);
-    }
+    public static void InjectTraceContext(IDictionary<string, string> headers)
+        => InjectTraceContext(Activity.Current, headers);
 
-    public static Headers DeserializeHeaders(string serialized)
+    public static void InjectTraceContext(Activity? activity, IDictionary<string, string> headers)
     {
-        var headers = new Headers();
-        var entries = JsonSerializer.Deserialize<HeaderEntry[]>(serialized) ?? [];
-
-        foreach (var entry in entries)
+        if (activity is null)
         {
-            headers.Add(entry.Key, Convert.FromBase64String(entry.Value));
+            return;
         }
 
-        return headers;
+        Propagator.Inject(new PropagationContext(activity.Context, default), headers, (h, key, value) => h[key] = value);
+    }
+
+    public static ActivityContext ExtractTraceContext(IDictionary<string, string> headers) =>
+        Propagator.Extract(default, headers, (h, key) => h.TryGetValue(key, out var value) ? [value] : []).ActivityContext;
+
+    public static Headers ToKafkaHeaders(IDictionary<string, string> headers)
+    {
+        var result = new Headers();
+
+        foreach (var (key, value) in headers)
+        {
+            result.Add(key, Encoding.UTF8.GetBytes(value));
+        }
+
+        return result;
     }
 
     private static void InjectHeader(Headers headers, string key, string value)
@@ -49,6 +62,4 @@ public static class KafkaTelemetry
 
     private static IEnumerable<string> ExtractHeader(Headers headers, string key)
         => headers.TryGetLastBytes(key, out var bytes) ? [Encoding.UTF8.GetString(bytes)] : [];
-
-    private sealed record HeaderEntry(string Key, string Value);
 }

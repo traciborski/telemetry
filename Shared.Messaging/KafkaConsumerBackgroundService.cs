@@ -75,7 +75,7 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
 
     private void RecordConsumeError(ConsumeException ex)
     {
-        using var infraActivity = KafkaTelemetry.ActivitySource.StartActivity($"{_topic} consume_error", ActivityKind.Consumer);
+        using var infraActivity = MessagingTelemetry.ActivitySource.StartActivity($"{_topic} consume_error", ActivityKind.Consumer);
         infraActivity?.SetStatus(ActivityStatusCode.Error, "Kafka connection or consumption failed");
         infraActivity?.AddException(ex);
         infraActivity?.SetTag("messaging.destination.name", _topic);
@@ -107,8 +107,8 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
 
     private async Task<MessageProcessingResult> ProcessMessage(ConsumeResult<string, string> result, CancellationToken stoppingToken)
     {
-        var parentContext = KafkaTelemetry.ExtractTraceContext(result.Message.Headers);
-        using var activity = KafkaTelemetry.ActivitySource.StartActivity($"{_topic} process", ActivityKind.Consumer, parentContext);
+        var parentContext = MessagingTelemetry.ExtractTraceContext(result.Message.Headers);
+        using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{_topic} process", ActivityKind.Consumer, parentContext);
 
         activity?.SetTag("messaging.system", "kafka");
         activity?.SetTag("messaging.destination.name", _topic);

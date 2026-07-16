@@ -17,23 +17,23 @@ public sealed class KafkaProducer : IDisposable
         }).Build();
     }
 
-    public async Task PublishAsync(string topic, string key, object value, CancellationToken cancellationToken)
+    public async Task PublishAsync(string topic, string? key, object value, CancellationToken cancellationToken)
     {
         await PublishAsync(topic, key, value, new Headers(), cancellationToken);
     }
 
-    public async Task PublishAsync(string topic, string key, object value, Headers originHeaders, CancellationToken cancellationToken)
+    public async Task PublishAsync(string topic, string? key, object value, Headers originHeaders, CancellationToken cancellationToken)
     {
-        var parentContext = KafkaTelemetry.ExtractTraceContext(originHeaders);
-        using var activity = KafkaTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer, parentContext);
+        var parentContext = MessagingTelemetry.ExtractTraceContext(originHeaders);
+        using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer, parentContext);
         activity?.SetTag("messaging.kafka.outbox_relayed", true);
 
-        KafkaTelemetry.InjectTraceContext(activity, originHeaders);
+        MessagingTelemetry.InjectTraceContext(activity, originHeaders);
 
         await ProduceAsync(topic, key, value, originHeaders, activity, cancellationToken);
     }
 
-    private async Task ProduceAsync(string topic, string key, object value, Headers headers, Activity? activity, CancellationToken cancellationToken)
+    private async Task ProduceAsync(string topic, string? key, object value, Headers headers, Activity? activity, CancellationToken cancellationToken)
     {
         activity?.SetTag("messaging.system", "kafka");
         activity?.SetTag("messaging.destination.name", topic);

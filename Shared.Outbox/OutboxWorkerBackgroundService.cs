@@ -35,7 +35,6 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
         var db = scope.ServiceProvider.GetRequiredService<TDbContext>();
 
         var pending = await db.OutboxMessages
-            .Where(m => m.PublishedAt == null)
             .OrderBy(m => m.CreatedAt)
             .Take(BatchSize)
             .ToListAsync(stoppingToken);
@@ -45,10 +44,10 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
             try
             {
                 var payload = JsonSerializer.Deserialize<object>(message.Payload) ?? throw new InvalidOperationException($"Outbox message {message.Id} has an invalid payload");
-                var headers = KafkaTelemetry.DeserializeHeaders(message.Headers);
+                var headers = MessagingTelemetry.ToKafkaHeaders(message.Headers);
                 await producer.PublishAsync(message.Topic, message.Key, payload, headers, stoppingToken);
 
-                message.PublishedAt = DateTimeOffset.UtcNow;
+                db.OutboxMessages.Remove(message);
                 await db.SaveChangesAsync(stoppingToken);
             }
             catch (Exception) when (stoppingToken.IsCancellationRequested)
@@ -57,7 +56,7 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
             }
             catch (Exception)
             {
-                // Leave PublishedAt unset so the message is retried on the next poll.
+                // Leave the message in the table so it is retried on the next poll.
             }
         }
     }

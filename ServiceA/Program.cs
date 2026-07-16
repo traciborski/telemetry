@@ -1,6 +1,4 @@
-using System.Diagnostics;
 using System.Text.Json;
-using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Trace;
 using ServiceA.Outbox;
@@ -45,18 +43,14 @@ app.MapPost("/orders",
             CreatedAt = message.CreatedAt,
         };
 
-        var headers = new Headers();
-        KafkaTelemetry.InjectTraceContext(Activity.Current, headers);
-
-        var outboxMessage = new OutboxMessage
+        var outboxMessage = new TransactionalOutbox
         {
-            Id = Guid.NewGuid(),
             Topic = KafkaTopics.OrdersCreated,
             Key = message.OrderId.ToString(),
             Payload = JsonSerializer.Serialize(message),
-            Headers = KafkaTelemetry.SerializeHeaders(headers),
             CreatedAt = message.CreatedAt,
         };
+        MessagingTelemetry.InjectTraceContext(outboxMessage.Headers);
 
         await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         db.Orders.Add(order);
