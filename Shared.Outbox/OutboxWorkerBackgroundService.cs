@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry;
 using Shared.Messaging;
 
 namespace Shared.Outbox;
@@ -34,10 +35,11 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TDbContext>();
 
-        var pending = await db.OutboxMessages
-            .OrderBy(m => m.CreatedAt)
-            .Take(BatchSize)
-            .ToListAsync(stoppingToken);
+        List<TransactionalOutbox> pending;
+        using (SuppressInstrumentationScope.Begin())
+        {
+            pending = await db.OutboxMessages.OrderBy(m => m.CreatedAt).Take(BatchSize).ToListAsync(stoppingToken);
+        }
 
         foreach (var message in pending)
         {
