@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json;
 using Confluent.Kafka;
 using OpenTelemetry.Context.Propagation;
 
@@ -24,9 +25,30 @@ public static class KafkaTelemetry
     public static ActivityContext ExtractTraceContext(Headers headers) =>
         Propagator.Extract(default, headers, ExtractHeader).ActivityContext;
 
+    public static string SerializeHeaders(Headers headers)
+    {
+        var entries = headers.Select(header => new HeaderEntry(header.Key, Convert.ToBase64String(header.GetValueBytes()))).ToArray();
+        return JsonSerializer.Serialize(entries);
+    }
+
+    public static Headers DeserializeHeaders(string serialized)
+    {
+        var headers = new Headers();
+        var entries = JsonSerializer.Deserialize<HeaderEntry[]>(serialized) ?? [];
+
+        foreach (var entry in entries)
+        {
+            headers.Add(entry.Key, Convert.FromBase64String(entry.Value));
+        }
+
+        return headers;
+    }
+
     private static void InjectHeader(Headers headers, string key, string value)
         => headers.Add(key, Encoding.UTF8.GetBytes(value));
 
     private static IEnumerable<string> ExtractHeader(Headers headers, string key)
         => headers.TryGetLastBytes(key, out var bytes) ? [Encoding.UTF8.GetString(bytes)] : [];
+
+    private sealed record HeaderEntry(string Key, string Value);
 }

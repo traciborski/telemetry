@@ -8,11 +8,11 @@ public sealed class OrderCreatedConsumer : KafkaConsumerBackgroundService<OrderC
 {
     private const string ProcessedCounterKey = "orders:processed:count";
 
-    private readonly KafkaProducer<OrderProcessedMessage> _producer;
+    private readonly KafkaProducer _producer;
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<OrderCreatedConsumer> _logger;
 
-    public OrderCreatedConsumer(IConfiguration configuration, KafkaProducer<OrderProcessedMessage> producer, IConnectionMultiplexer redis, ILogger<OrderCreatedConsumer> logger)
+    public OrderCreatedConsumer(IConfiguration configuration, KafkaProducer producer, IConnectionMultiplexer redis, ILogger<OrderCreatedConsumer> logger)
         : base(configuration["Kafka:BootstrapServers"], groupId: "service-b", topic: KafkaTopics.OrdersCreated)
     {
         _producer = producer;

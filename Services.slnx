@@ -4,5 +4,6 @@
   <Project Path="ServiceC/ServiceC.csproj" />
   <Project Path="ServiceD/ServiceD.csproj" />
   <Project Path="Shared.Messaging/Shared.Messaging.csproj" />
+  <Project Path="Shared.Outbox/Shared.Outbox.csproj" />
   <Project Path="Shared.Telemetry/Shared.Telemetry.csproj" />
 </Solution>

@@ -7,7 +7,7 @@ using ServiceB;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceTelemetry("ServiceB");
-builder.Services.AddSingleton(sp => new KafkaProducer<OrderProcessedMessage>(builder.Configuration["Kafka:BootstrapServers"]));
+builder.Services.AddSingleton(sp => new KafkaProducer(builder.Configuration["Kafka:BootstrapServers"]));
 
 var redisConnection = ConnectionMultiplexer.Connect(builder.Configuration["Redis:ConnectionString"] ?? throw new Exception("no redis"));
 builder.Services.AddSingleton<IConnectionMultiplexer>(redisConnection);

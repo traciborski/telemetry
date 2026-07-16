@@ -210,9 +210,14 @@ services:
     environment:
       - Kafka__BootstrapServers=redpanda:9092
       - Otel__Endpoint=http://otel-collector:4317
+      - Sql__ConnectionString=Server=sqlserver;Database=service-a;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;
     depends_on:
-      - redpanda
-      - otel-collector
+      redpanda:
+        condition: service_started
+      otel-collector:
+        condition: service_started
+      sqlserver:
+        condition: service_healthy
 
   service-b:
     build:

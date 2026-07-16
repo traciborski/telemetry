@@ -4,7 +4,7 @@ using Confluent.Kafka;
 
 namespace Shared.Messaging;
 
-public sealed class KafkaProducer<TValue> : IDisposable
+public sealed class KafkaProducer : IDisposable
 {
     private readonly IProducer<string, string> _producer;
 
@@ -17,16 +17,28 @@ public sealed class KafkaProducer<TValue> : IDisposable
         }).Build();
     }
 
-    public async Task PublishAsync(string topic, string key, TValue value, CancellationToken cancellationToken = default)
+    public async Task PublishAsync(string topic, string key, object value, CancellationToken cancellationToken)
     {
-        using var activity = KafkaTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer);
+        await PublishAsync(topic, key, value, new Headers(), cancellationToken);
+    }
+
+    public async Task PublishAsync(string topic, string key, object value, Headers originHeaders, CancellationToken cancellationToken)
+    {
+        var parentContext = KafkaTelemetry.ExtractTraceContext(originHeaders);
+        using var activity = KafkaTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer, parentContext);
+        activity?.SetTag("messaging.kafka.outbox_relayed", true);
+
+        KafkaTelemetry.InjectTraceContext(activity, originHeaders);
+
+        await ProduceAsync(topic, key, value, originHeaders, activity, cancellationToken);
+    }
+
+    private async Task ProduceAsync(string topic, string key, object value, Headers headers, Activity? activity, CancellationToken cancellationToken)
+    {
         activity?.SetTag("messaging.system", "kafka");
         activity?.SetTag("messaging.destination.name", topic);
         activity?.SetTag("messaging.operation", "publish");
         activity?.SetTag("messaging.kafka.message.key", key);
-
-        var headers = new Headers();
-        KafkaTelemetry.InjectTraceContext(activity, headers);
 
         var message = new Message<string, string>
         {
