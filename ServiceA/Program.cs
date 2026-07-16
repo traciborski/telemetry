@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Trace;
-using ServiceA.Outbox;
+using ServiceA;
 using Shared.Messaging;
 using Shared.Messaging.Contracts;
 using Shared.Outbox;

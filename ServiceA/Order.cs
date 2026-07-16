@@ -1,4 +1,4 @@
-namespace ServiceA.Outbox;
+namespace ServiceA;
 
 public sealed class Order
 {
