@@ -12,14 +12,17 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
     : BackgroundService
     where TDbContext : DbContext, IOutboxDbContext
 {
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
     private const int BatchSize = 20;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         while (!stoppingToken.IsCancellationRequested)
         {
-            await PublishPendingAsync(stoppingToken);
+            if (await PublishPendingAsync(stoppingToken))
+            {
+                continue;
+            }
 
             try
             {
@@ -31,7 +34,7 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
         }
     }
 
-    private async Task PublishPendingAsync(CancellationToken stoppingToken)
+    private async Task<bool> PublishPendingAsync(CancellationToken stoppingToken)
     {
         using var scope = scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<TDbContext>();
@@ -44,16 +47,22 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
 
         if (pending.Count == 0)
         {
-            return;
+            return false;
         }
 
+        var publishedCount = 0;
         foreach (var message in pending)
         {
-            await RelayMessageAsync(db, message, stoppingToken);
+            if (await RelayMessageAsync(db, message, stoppingToken))
+            {
+                publishedCount++;
+            }
         }
+
+        return pending.Count == BatchSize && publishedCount == pending.Count;
     }
 
-    private async Task RelayMessageAsync(TDbContext db, TransactionalOutbox message, CancellationToken stoppingToken)
+    private async Task<bool> RelayMessageAsync(TDbContext db, TransactionalOutbox message, CancellationToken stoppingToken)
     {
         var parentContext = MessagingTelemetry.ExtractTraceContext(message.Headers);
         using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{message.Topic} outbox relay", ActivityKind.Internal, parentContext);
@@ -74,6 +83,7 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
 
             db.OutboxMessages.Remove(message);
             await db.SaveChangesAsync(stoppingToken);
+            return true;
         }
         catch (Exception) when (stoppingToken.IsCancellationRequested)
         {
@@ -84,6 +94,7 @@ public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFacto
             // Leave the message in the table so it is retried on the next poll.
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
+            return false;
         }
     }
 }
