@@ -9,12 +9,18 @@ public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
     private readonly string _topic;
-    private readonly int _batchSize = 4;
+    private readonly int _batchSize;
     private readonly TimeSpan _batchFillTimeout = TimeSpan.FromMilliseconds(100);
 
-    protected KafkaConsumerBackgroundService(string? bootstrapServers, string groupId, string topic)
+    protected KafkaConsumerBackgroundService(string? bootstrapServers, string groupId, string topic, int batchSize = 4)
     {
+        if (batchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(batchSize), batchSize, "Batch size must be positive.");
+        }
+
         _topic = topic;
+        _batchSize = batchSize;
         _consumer = new ConsumerBuilder<string, string>(new ConsumerConfig
         {
             BootstrapServers = bootstrapServers ?? throw new Exception("no kafka"),

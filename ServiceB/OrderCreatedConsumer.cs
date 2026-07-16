@@ -7,13 +7,14 @@ namespace ServiceB;
 public sealed class OrderCreatedConsumer : KafkaConsumerBackgroundService<OrderCreatedMessage>
 {
     private const string ProcessedCounterKey = "orders:processed:count";
+    private const int BatchSize = 32;
 
     private readonly KafkaProducer _producer;
     private readonly IConnectionMultiplexer _redis;
     private readonly ILogger<OrderCreatedConsumer> _logger;
 
     public OrderCreatedConsumer(IConfiguration configuration, KafkaProducer producer, IConnectionMultiplexer redis, ILogger<OrderCreatedConsumer> logger)
-        : base(configuration["Kafka:BootstrapServers"], groupId: "service-b", topic: KafkaTopics.OrdersCreated)
+        : base(configuration["Kafka:BootstrapServers"], groupId: "service-b", topic: KafkaTopics.OrdersCreated, batchSize: BatchSize)
     {
         _producer = producer;
         _redis = redis;
