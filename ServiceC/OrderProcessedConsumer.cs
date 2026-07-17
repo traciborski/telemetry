@@ -4,7 +4,7 @@ using Elastic.Clients.Elasticsearch;
 
 namespace ServiceC;
 
-public sealed class OrderProcessedConsumer : KafkaConsumerBackgroundService<OrderProcessedMessage>
+public sealed class OrderProcessedConsumer : KafkaConsumerWorker<OrderProcessedMessage>
 {
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ElasticsearchClient _elasticsearchClient;

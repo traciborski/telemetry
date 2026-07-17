@@ -8,7 +8,7 @@ using Shared.Messaging;
 
 namespace Shared.Outbox;
 
-public sealed class OutboxWorkerBackgroundService<TDbContext>(IServiceScopeFactory scopeFactory, KafkaProducer producer)
+public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, KafkaProducer producer)
     : BackgroundService
     where TDbContext : DbContext, IOutboxDbContext
 {

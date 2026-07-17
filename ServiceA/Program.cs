@@ -19,7 +19,7 @@ builder.Services
 builder.Services
     .AddOpenTelemetry().WithTracing(x =>
         x.AddEntityFrameworkCoreInstrumentation());
-builder.Services.AddHostedService<OutboxWorkerBackgroundService<AppDbContext>>();
+builder.Services.AddHostedService<OutboxWorker<AppDbContext>>();
 
 builder.WebHost.UseUrls("http://*:8080");
 var app = builder.Build();

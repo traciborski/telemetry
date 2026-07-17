@@ -4,7 +4,7 @@ using StackExchange.Redis;
 
 namespace ServiceB;
 
-public sealed class OrderCreatedConsumer : KafkaConsumerBackgroundService<OrderCreatedMessage>
+public sealed class OrderCreatedConsumer : KafkaConsumerWorker<OrderCreatedMessage>
 {
     private const string ProcessedCounterKey = "orders:processed:count";
     private const int BatchSize = 32;

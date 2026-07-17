@@ -5,14 +5,14 @@ using Microsoft.Extensions.Hosting;
 
 namespace Shared.Messaging;
 
-public abstract class KafkaConsumerBackgroundService<TValue> : BackgroundService
+public abstract class KafkaConsumerWorker<TValue> : BackgroundService
 {
     private readonly IConsumer<string, string> _consumer;
     private readonly string _topic;
     private readonly int _batchSize;
     private readonly TimeSpan _batchFillTimeout = TimeSpan.FromMilliseconds(100);
 
-    protected KafkaConsumerBackgroundService(string? bootstrapServers, string groupId, string topic, int batchSize = 4)
+    protected KafkaConsumerWorker(string? bootstrapServers, string groupId, string topic, int batchSize = 4)
     {
         if (batchSize <= 0)
         {
