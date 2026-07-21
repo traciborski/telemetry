@@ -17,8 +17,9 @@ var sqlConnectionString =
 builder.Services
     .AddDbContext<AppDbContext>(x => x.UseSqlServer(sqlConnectionString));
 builder.Services
-    .AddOpenTelemetry().WithTracing(x =>
-        x.AddEntityFrameworkCoreInstrumentation());
+    .AddOpenTelemetry()
+    .WithTracing(x => x.AddEntityFrameworkCoreInstrumentation())
+    .WithMetrics(x => x.AddMeter(OutboxTelemetry.MeterName, OrdersTelemetry.MeterName));
 builder.Services.AddHostedService<OutboxWorker<AppDbContext>>();
 
 builder.WebHost.UseUrls("http://*:8080");
@@ -57,6 +58,8 @@ app.MapPost("/orders",
         db.OutboxMessages.Add(outboxMessage);
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+
+        OrdersTelemetry.OrdersCreated.Add(1, new KeyValuePair<string, object?>("product", request.Product));
 
         return Results.Accepted(value: new { message.OrderId });
     });

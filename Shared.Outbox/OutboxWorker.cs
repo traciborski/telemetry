@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +15,15 @@ public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, 
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
     private const int BatchSize = 20;
+
+    private static double _oldestPendingAgeSeconds;
+
+    private static readonly ObservableGauge<double> OldestPendingAgeGauge = OutboxTelemetry.Meter.CreateObservableGauge(
+        "outbox.oldest_pending_age",
+        () => _oldestPendingAgeSeconds,
+        unit: "s",
+        description: "Age of the oldest unpublished outbox message; 0 when the outbox is empty.",
+        tags: [new KeyValuePair<string, object?>("db.context", typeof(TDbContext).Name)]);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -44,6 +54,8 @@ public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, 
         {
             pending = await db.OutboxMessages.OrderBy(m => m.CreatedAt).Take(BatchSize).ToListAsync(stoppingToken);
         }
+
+        _oldestPendingAgeSeconds = pending.Count == 0 ? 0 : (DateTimeOffset.UtcNow - pending[0].CreatedAt).TotalSeconds;
 
         if (pending.Count == 0)
         {
