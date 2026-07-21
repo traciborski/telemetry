@@ -19,18 +19,22 @@ public sealed class KafkaProducer : IDisposable
 
     public async Task PublishAsync(string topic, string? key, object value, CancellationToken cancellationToken)
     {
-        await PublishAsync(topic, key, value, new Headers(), cancellationToken);
+        using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer);
+        activity?.SetTag("messaging.kafka.outbox_relayed", false);
+        var headers = new Headers();
+        MessagingTelemetry.InjectTraceContext(activity, headers);
+
+        await ProduceAsync(topic, key, value, headers, activity, cancellationToken);
     }
 
-    public async Task PublishAsync(string topic, string? key, object value, Headers originHeaders, CancellationToken cancellationToken)
+    public async Task PublishAsync(string topic, string? key, object value, Headers headers, CancellationToken cancellationToken)
     {
-        var parentContext = MessagingTelemetry.ExtractTraceContext(originHeaders);
+        var parentContext = MessagingTelemetry.ExtractTraceContext(headers);
         using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer, parentContext);
         activity?.SetTag("messaging.kafka.outbox_relayed", true);
+        MessagingTelemetry.InjectTraceContext(activity, headers);
 
-        MessagingTelemetry.InjectTraceContext(activity, originHeaders);
-
-        await ProduceAsync(topic, key, value, originHeaders, activity, cancellationToken);
+        await ProduceAsync(topic, key, value, headers, activity, cancellationToken);
     }
 
     private async Task ProduceAsync(string topic, string? key, object value, Headers headers, Activity? activity, CancellationToken cancellationToken)
