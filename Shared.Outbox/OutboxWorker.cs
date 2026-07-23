@@ -76,8 +76,24 @@ public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, 
 
     private async Task<bool> RelayMessageAsync(TDbContext db, TransactionalOutbox message, CancellationToken stoppingToken)
     {
-        var parentContext = MessagingTelemetry.ExtractTraceContext(message.Headers);
+        var propagationContext = MessagingTelemetry.ExtractPropagationContext(message.Headers);
+        var tenantId = MessagingTelemetry.ExtractTenantId(message.Headers) ?? throw new InvalidOperationException($"Missing required tenant header '{MessagingTelemetry.TenantIdHeaderName}' on outbox message {message.Id}.");
+        var propagatedTenantId = propagationContext.Baggage.GetBaggage(MessagingTelemetry.TenantIdAttributeName);
+        if (string.IsNullOrWhiteSpace(propagatedTenantId))
+        {
+            throw new InvalidOperationException(
+                $"Missing required tenant context '{MessagingTelemetry.TenantIdAttributeName}' in trace headers on outbox message {message.Id}.");
+        }
+
+        if (!string.Equals(propagatedTenantId, tenantId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Tenant mismatch in trace on outbox message {message.Id}: propagated tenant '{propagatedTenantId}' does not match message tenant '{tenantId}'.");
+        }
+
+        var parentContext = propagationContext.ActivityContext;
         using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{message.Topic} outbox relay", ActivityKind.Internal, parentContext);
+        activity?.SetTag(MessagingTelemetry.TenantIdAttributeName, tenantId);
+        activity?.SetBaggage(MessagingTelemetry.TenantIdAttributeName, tenantId);
 
         activity?.SetTag("messaging.destination.name", message.Topic);
         activity?.SetTag("messaging.kafka.message.key", message.Key);

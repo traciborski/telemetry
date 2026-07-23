@@ -20,6 +20,7 @@ public sealed class KafkaProducer : IDisposable
     public async Task PublishAsync(string topic, string? key, object value, CancellationToken cancellationToken)
     {
         using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer);
+        MessagingTelemetry.ApplyTenantContext(activity);
         activity?.SetTag("messaging.kafka.outbox_relayed", false);
         var headers = new Headers();
         MessagingTelemetry.InjectTraceContext(activity, headers);
@@ -31,6 +32,7 @@ public sealed class KafkaProducer : IDisposable
     {
         var parentContext = MessagingTelemetry.ExtractTraceContext(headers);
         using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{topic} publish", ActivityKind.Producer, parentContext);
+        MessagingTelemetry.ApplyTenantContext(activity, headers);
         activity?.SetTag("messaging.kafka.outbox_relayed", true);
         MessagingTelemetry.InjectTraceContext(activity, headers);
 

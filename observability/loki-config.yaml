@@ -1,4 +1,4 @@
-auth_enabled: false
+auth_enabled: true
 
 server:
   http_listen_port: 3100
@@ -37,6 +37,7 @@ distributor:
       - service.instance.id
       - deployment.environment.name
       - team
+      - tenant.id
 
 schema_config:
   configs:

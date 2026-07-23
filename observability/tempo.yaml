@@ -1,3 +1,5 @@
+multitenancy_enabled: true
+
 server:
   http_listen_port: 3200
 
@@ -19,6 +21,15 @@ compactor:
 
 storage:
   trace:
+    block:
+      version: vParquet4
+      parquet_dedicated_columns:
+        - name: team
+          type: string
+          scope: resource
+        - name: tenant.id
+          type: string
+          scope: resource
     backend: azure
     azure:
       storage_account_name: devstoreaccount1

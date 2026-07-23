@@ -3,18 +3,28 @@ receivers:
     protocols:
       grpc:
         endpoint: 0.0.0.0:4317
+        include_metadata: true
       http:
         endpoint: 0.0.0.0:4318
+        include_metadata: true
 
 processors:
   batch:
     timeout: 1s
     send_batch_size: 1024
+    metadata_keys: [tenant-id]
   resource:
     attributes:
       - key: environment
         value: poc
         action: upsert
+
+extensions:
+  headers_setter:
+    headers:
+      - key: X-Scope-OrgID
+        from_context: tenant-id
+        default_value: default
 
 exporters:
   # Traces -> Tempo, native OTLP receiver.
@@ -22,23 +32,30 @@ exporters:
     endpoint: tempo:4317
     tls:
       insecure: true
+    auth:
+      authenticator: headers_setter
 
   # Metrics -> Mimir, native OTLP ingestion endpoint (collector appends /v1/metrics).
   otlphttp/mimir:
     endpoint: http://mimir:9009/otlp
     tls:
       insecure: true
+    auth:
+      authenticator: headers_setter
 
   # Logs -> Loki, native OTLP ingestion endpoint (collector appends /v1/logs).
   otlphttp/loki:
     endpoint: http://loki:3100/otlp
     tls:
       insecure: true
+    auth:
+      authenticator: headers_setter
 
   debug:
     verbosity: basic
 
 service:
+  extensions: [headers_setter]
   pipelines:
     traces:
       receivers: [otlp]

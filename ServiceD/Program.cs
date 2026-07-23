@@ -13,6 +13,7 @@ builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing.AddEntityFram
 
 builder.WebHost.UseUrls("http://*:8080");
 var app = builder.Build();
+app.UseTenantTelemetry();
 
 app.MapPost("/notifications", async (OrderProcessedMessage message, AppDbContext db, ILogger<Program> logger) =>
 {

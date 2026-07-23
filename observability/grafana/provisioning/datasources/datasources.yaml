@@ -8,6 +8,10 @@ datasources:
     url: http://mimir:9009/prometheus
     isDefault: true
     editable: true
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: default
 
   - name: Loki
     type: loki
@@ -15,6 +19,10 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: true
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: default
 
   - name: Tempo
     type: tempo
@@ -23,6 +31,7 @@ datasources:
     url: http://tempo:3200
     editable: true
     jsonData:
+      httpHeaderName1: X-Scope-OrgID
       tracesToLogsV2:
         datasourceUid: loki
         filterByTraceID: true
@@ -31,9 +40,13 @@ datasources:
             value: service_name
           - key: team
             value: team
+          - key: tenant.id
+            value: tenant_id
       tracesToMetrics:
         datasourceUid: mimir
       serviceMap:
         datasourceUid: mimir
       nodeGraph:
         enabled: true
+    secureJsonData:
+      httpHeaderValue1: default

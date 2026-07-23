@@ -9,6 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceTelemetry("ServiceC");
 var serviceDBaseUrl = builder.Configuration["ServiceD:BaseUrl"] ?? "http://service-d:8080";
 builder.Services.AddHttpClient("ServiceD", client => client.BaseAddress = new Uri(serviceDBaseUrl))
+    .AddTenantHeaderPropagation()
     .AddResilienceHandler("service-d-retry", resilience =>
     {
         resilience.AddRetry(new HttpRetryStrategyOptions
@@ -28,6 +29,7 @@ builder.Services.AddOpenTelemetry().WithTracing(tracing => tracing.AddSource("El
 builder.Services.AddHostedService<OrderProcessedConsumer>();
 builder.WebHost.UseUrls("http://*:8080");
 var app = builder.Build();
+app.UseTenantTelemetry();
 
 app.MapGet("/health", () => Results.Ok("healthy"));
 app.Run();

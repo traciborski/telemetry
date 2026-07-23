@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using Confluent.Kafka;
+using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 
 namespace Shared.Messaging;
@@ -8,6 +9,8 @@ namespace Shared.Messaging;
 public static class MessagingTelemetry
 {
     public static readonly ActivitySource ActivitySource = new("Messaging.Kafka");
+    public const string TenantIdAttributeName = "tenant.id";
+    public const string TenantIdHeaderName = "tenant-id";
 
     private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 
@@ -18,12 +21,12 @@ public static class MessagingTelemetry
 
     public static void InjectTraceContext(Activity? activity, Headers headers)
     {
-        if (activity is null)
-        {
-            return;
-        }
+        var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+        var tenantId = RequireTenantId(currentActivity);
 
-        Propagator.Inject(new PropagationContext(activity.Context, default), headers, InjectHeader);
+        Propagator.Inject(new PropagationContext(currentActivity.Context, Baggage.Current), headers, InjectHeader);
+        headers.Remove(TenantIdHeaderName);
+        headers.Add(TenantIdHeaderName, Encoding.UTF8.GetBytes(tenantId));
     }
 
     public static ActivityContext ExtractTraceContext(Headers headers) =>
@@ -34,16 +37,21 @@ public static class MessagingTelemetry
 
     public static void InjectTraceContext(Activity? activity, IDictionary<string, string> headers)
     {
-        if (activity is null)
-        {
-            return;
-        }
+        var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+        var tenantId = RequireTenantId(currentActivity);
 
-        Propagator.Inject(new PropagationContext(activity.Context, default), headers, (h, key, value) => h[key] = value);
+        Propagator.Inject(new PropagationContext(currentActivity.Context, Baggage.Current), headers, (h, key, value) => h[key] = value);
+        headers[TenantIdHeaderName] = tenantId;
     }
 
     public static ActivityContext ExtractTraceContext(IDictionary<string, string> headers) =>
         Propagator.Extract(default, headers, (h, key) => h.TryGetValue(key, out var value) ? [value] : []).ActivityContext;
+
+    public static PropagationContext ExtractPropagationContext(Headers headers) =>
+        Propagator.Extract(default, headers, ExtractHeader);
+
+    public static PropagationContext ExtractPropagationContext(IDictionary<string, string> headers) =>
+        Propagator.Extract(default, headers, (h, key) => h.TryGetValue(key, out var value) ? [value] : []);
 
     public static Headers ToKafkaHeaders(IDictionary<string, string> headers)
     {
@@ -62,4 +70,82 @@ public static class MessagingTelemetry
 
     private static IEnumerable<string> ExtractHeader(Headers headers, string key)
         => headers.TryGetLastBytes(key, out var bytes) ? [Encoding.UTF8.GetString(bytes)] : [];
+
+    public static string? ExtractTenantId(Headers headers)
+        => ExtractTenantId(headers.TryGetLastBytes(TenantIdHeaderName, out var bytes) ? Encoding.UTF8.GetString(bytes) : null);
+
+    public static string? ExtractTenantId(IDictionary<string, string> headers)
+    {
+        headers.TryGetValue(TenantIdHeaderName, out var tenantId);
+        return ExtractTenantId(tenantId);
+    }
+
+    public static void ApplyTenantContext(Activity? activity, Headers headers)
+    {
+        var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+        var propagationContext = ExtractPropagationContext(headers);
+        var tenantId = RequireTenantId(headers, propagationContext);
+
+        currentActivity.SetTag(TenantIdAttributeName, tenantId);
+        currentActivity.SetBaggage(TenantIdAttributeName, tenantId);
+    }
+
+    public static void ApplyTenantContext(Activity? activity, IDictionary<string, string> headers)
+    {
+        var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+        var propagationContext = ExtractPropagationContext(headers);
+        var tenantId = RequireTenantId(headers, propagationContext);
+
+        currentActivity.SetTag(TenantIdAttributeName, tenantId);
+        currentActivity.SetBaggage(TenantIdAttributeName, tenantId);
+    }
+
+    public static void ApplyTenantContext(Activity? activity)
+    {
+        var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+        var tenantId = RequireTenantId(currentActivity);
+
+        currentActivity.SetTag(TenantIdAttributeName, tenantId);
+        currentActivity.SetBaggage(TenantIdAttributeName, tenantId);
+    }
+
+    private static string? ExtractTenantId(string? tenantId)
+        => string.IsNullOrWhiteSpace(tenantId) ? null : tenantId;
+
+    private static string? GetTenantIdFromActivity(Activity activity)
+        => activity.GetBaggageItem(TenantIdAttributeName) ?? activity.GetTagItem(TenantIdAttributeName)?.ToString();
+
+    private static string RequireTenantId(Activity activity)
+        => GetTenantIdFromActivity(activity)
+           ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+
+    private static string RequireTenantId(Headers headers)
+        => ExtractTenantId(headers) ?? throw new InvalidOperationException($"Missing required tenant header '{TenantIdHeaderName}'.");
+
+    private static string RequireTenantId(IDictionary<string, string> headers)
+        => ExtractTenantId(headers) ?? throw new InvalidOperationException($"Missing required tenant header '{TenantIdHeaderName}'.");
+
+    private static string RequireTenantId(Headers headers, PropagationContext propagationContext)
+    {
+        var tenantId = RequireTenantId(headers);
+        EnsureTenantMatchesPropagationContext(tenantId, propagationContext);
+        return tenantId;
+    }
+
+    private static string RequireTenantId(IDictionary<string, string> headers, PropagationContext propagationContext)
+    {
+        var tenantId = RequireTenantId(headers);
+        EnsureTenantMatchesPropagationContext(tenantId, propagationContext);
+        return tenantId;
+    }
+
+    private static void EnsureTenantMatchesPropagationContext(string tenantId, PropagationContext propagationContext)
+    {
+        var currentTenantId = propagationContext.Baggage.GetBaggage(TenantIdAttributeName);
+        if (!string.IsNullOrWhiteSpace(currentTenantId) && !string.Equals(currentTenantId, tenantId, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                $"Tenant mismatch in trace: current tenant '{currentTenantId}' does not match incoming tenant '{tenantId}'.");
+        }
+    }
 }

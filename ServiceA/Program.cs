@@ -24,6 +24,7 @@ builder.Services.AddHostedService<OutboxWorker<AppDbContext>>();
 
 builder.WebHost.UseUrls("http://*:8080");
 var app = builder.Build();
+app.UseTenantTelemetry();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -59,7 +60,10 @@ app.MapPost("/orders",
         await db.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        OrdersTelemetry.OrdersCreated.Add(1, new KeyValuePair<string, object?>("product", request.Product));
+        OrdersTelemetry.OrdersCreated.Add(
+            1,
+            new KeyValuePair<string, object?>("product", request.Product),
+            new KeyValuePair<string, object?>(MessagingTelemetry.TenantIdAttributeName, TenantTelemetryExtensions.RequireCurrentTenantId()));
 
         return Results.Accepted(value: new { message.OrderId });
     });

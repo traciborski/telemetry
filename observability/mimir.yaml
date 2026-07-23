@@ -1,7 +1,7 @@
 # Single-instance Grafana Mimir config using local filesystem storage.
 # Based on the official "get started" monolithic-mode example from the Mimir docs.
 # Do not use this configuration in production - it is for demonstration/POC purposes only.
-multitenancy_enabled: false
+multitenancy_enabled: true
 
 blocks_storage:
   backend: azure
