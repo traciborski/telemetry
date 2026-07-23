@@ -43,3 +43,4 @@ podman compose up -d --build --force-recreate
 * time / memory costs for searching logs and traces
  * search traces by trace id 
  * search logs by indexed fields (defined in default_resource_attributes_as_index_labels or custom)
+* multi-tenancy?
