@@ -7,7 +7,7 @@ namespace Shared.Messaging;
 
 public static class MessagingTelemetry
 {
-    public static readonly ActivitySource ActivitySource = new("Messaging.Kafka"); // MyCompany.MyProduct.MyLibrary
+    public static readonly ActivitySource ActivitySource = new("Messaging.Kafka");
 
     private static readonly TextMapPropagator Propagator = Propagators.DefaultTextMapPropagator;
 

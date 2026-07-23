@@ -103,7 +103,6 @@ public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, 
         }
         catch (Exception ex)
         {
-            // Leave the message in the table so it is retried on the next poll.
             activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             activity?.AddException(ex);
             return false;
