@@ -17,19 +17,26 @@ public static class OpenTelemetryExtensions
         var otlpEndpoint = builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317";
         var otlpUri = new Uri(otlpEndpoint);
         var team = builder.Configuration["Team"] ?? "unknown";
+        var resourceAttributes = new KeyValuePair<string, object>[]
+        {
+            new("team", team)
+        };
 
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
             logging.IncludeScopes = true;
             logging.ParseStateValues = true;
+            logging.SetResourceBuilder(ResourceBuilder.CreateDefault()
+                .AddService(serviceName: serviceName)
+                .AddAttributes(resourceAttributes));
             logging.AddOtlpExporter(o => o.Endpoint = otlpUri);
         });
 
         builder.Services.AddOpenTelemetry()
             .ConfigureResource(r => r
                 .AddService(serviceName: serviceName)
-                .AddAttributes([new KeyValuePair<string, object>("team", team)]))
+                .AddAttributes(resourceAttributes))
             .WithTracing(tracing => tracing
                 .AddSource(serviceName)
                 .AddSource(KafkaActivitySourceName)
