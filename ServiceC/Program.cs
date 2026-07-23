@@ -1,7 +1,6 @@
 using Shared.Telemetry;
 using ServiceC;
 using Elastic.Clients.Elasticsearch;
-using Elastic.Transport;
 using Microsoft.Extensions.Http.Resilience;
 using Polly;
 

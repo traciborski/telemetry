@@ -45,22 +45,22 @@ public static class TenantTelemetryExtensions
     public static IHttpClientBuilder AddTenantHeaderPropagation(this IHttpClientBuilder builder)
         => builder.AddHttpMessageHandler(() => new TenantHeaderPropagationHandler());
 
-    public static string? GetCurrentTenantId()
+    private static string? GetCurrentTenantId()
     {
         var activity = Activity.Current;
         return activity?.GetBaggageItem(TenantIdAttributeName) ?? activity?.GetTagItem(TenantIdAttributeName)?.ToString();
     }
 
-    public static string RequireCurrentTenantId()
+    private static string RequireCurrentTenantId()
         => GetCurrentTenantId() ?? throw new InvalidOperationException($"Missing required tenant header '{TenantIdHeaderName}'.");
 
-    public static string? GetTenantIdFromHeaders(IHeaderDictionary headers)
+    private static string? GetTenantIdFromHeaders(IHeaderDictionary headers)
         => GetTenantIdFromHeaders(headers.TryGetValue(TenantIdHeaderName, out var tenantIdValue) ? tenantIdValue : default);
 
-    public static string RequireTenantIdFromHeaders(IHeaderDictionary headers)
+    private static string RequireTenantIdFromHeaders(IHeaderDictionary headers)
         => GetTenantIdFromHeaders(headers) ?? throw new InvalidOperationException($"Missing required tenant header '{TenantIdHeaderName}'.");
 
-    public static void EnsureTenantMatchesTrace(string tenantId)
+    private static void EnsureTenantMatchesTrace(string tenantId)
     {
         var currentTenantId = GetCurrentTenantId();
         if (!string.IsNullOrWhiteSpace(currentTenantId) && !string.Equals(currentTenantId, tenantId, StringComparison.Ordinal))
@@ -82,7 +82,6 @@ public static class TenantTelemetryExtensions
             var tenantId = RequireCurrentTenantId();
             request.Headers.Remove(TenantIdHeaderName);
             request.Headers.TryAddWithoutValidation(TenantIdHeaderName, tenantId);
-
             return base.SendAsync(request, cancellationToken);
         }
     }
