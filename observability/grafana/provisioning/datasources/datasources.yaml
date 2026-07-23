@@ -29,6 +29,8 @@ datasources:
         tags:
           - key: service.name
             value: service_name
+          - key: team
+            value: team
       tracesToMetrics:
         datasourceUid: mimir
       serviceMap:

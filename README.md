@@ -13,7 +13,7 @@
 
 ## Stack OTL
 
-| Sygnał  | Backend | Storage | Port UI 
+| Sygnał  | Backend | Storage | UI 
 |---------|---------|---------|-------------------
 | Traces  | Tempo   | Blobs   | Grafana 
 | Logs    | Loki    | Blobs   | Grafana 
@@ -30,12 +30,8 @@ podman compose up -d --build --force-recreate
 1..50 | ForEach-Object { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8081/orders" -ContentType "application/json" -Body '{"product":"Widget","quantity":3}' }
 ```
 
-## Topics
-* kafka batch handler with tracing
-* outbox with tracing 
-
 ## Wnioski
-* Libki nie powinny robic logow, tylko trace'y (a replicator?)
+* Libki nie powinny robic logow, tylko trace'y (a np replicator?)
 * OTel Span (in Traces) = AppInsights Dependency OR Request = .NET Activity
 * Serilog niepotrzebny
 * mozna zrobic SetStatus i RecordException na Trace'ach
@@ -75,3 +71,7 @@ podman compose up -d --build --force-recreate
 ### Governance
 * Kto utrzymuje `Shared.*` (platform team?), jak są dystrybuowane/wersjonowane (NuGet feed) i jak komunikowane są breaking changes do ~100 zespołów.
 * Redakcja PII w logach/trace'ach (np. `redaction` processor w collectorze) jako siatka bezpieczeństwa.
+* Kafka propaguje `ActivityContext`; Baggage nie jest używane/potrzebne
+* time / memory costs for searching logs and traces
+ * search traces by trace id 
+ * search logs by indexed fields (defined in default_resource_attributes_as_index_labels or custom)

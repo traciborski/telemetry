@@ -210,6 +210,7 @@ services:
     environment:
       - Kafka__BootstrapServers=redpanda:9092
       - Otel__Endpoint=http://otel-collector:4317
+      - Team=team-a
       - Sql__ConnectionString=Server=sqlserver;Database=service-a;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;
     depends_on:
       redpanda:
@@ -230,6 +231,7 @@ services:
       - Kafka__BootstrapServers=redpanda:9092
       - Otel__Endpoint=http://otel-collector:4317
       - Redis__ConnectionString=redis:6379
+      - Team=team-b
     depends_on:
       - redpanda
       - otel-collector
@@ -247,6 +249,7 @@ services:
       - Otel__Endpoint=http://otel-collector:4317
       - ServiceD__BaseUrl=http://service-d:8080
       - Elasticsearch__Uri=http://elasticsearch:9200
+      - Team=team-c
     depends_on:
       - redpanda
       - otel-collector
@@ -262,6 +265,7 @@ services:
       - "8084:8080"
     environment:
       - Otel__Endpoint=http://otel-collector:4317
+      - Team=team-d
       - Sql__ConnectionString=Server=sqlserver;Database=master;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;
     depends_on:
       otel-collector:

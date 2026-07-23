@@ -16,6 +16,7 @@ public static class OpenTelemetryExtensions
     {
         var otlpEndpoint = builder.Configuration["Otel:Endpoint"] ?? "http://otel-collector:4317";
         var otlpUri = new Uri(otlpEndpoint);
+        var team = builder.Configuration["Team"] ?? "unknown";
 
         builder.Logging.AddOpenTelemetry(logging =>
         {
@@ -26,7 +27,9 @@ public static class OpenTelemetryExtensions
         });
 
         builder.Services.AddOpenTelemetry()
-            .ConfigureResource(r => r.AddService(serviceName: serviceName))
+            .ConfigureResource(r => r
+                .AddService(serviceName: serviceName)
+                .AddAttributes([new KeyValuePair<string, object>("team", team)]))
             .WithTracing(tracing => tracing
                 .AddSource(serviceName)
                 .AddSource(KafkaActivitySourceName)
