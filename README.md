@@ -28,6 +28,8 @@ podman compose up -d --build --force-recreate
 ## Testy
 ```powershell
 1..50 | ForEach-Object { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8081/orders" -ContentType "application/json" -Body '{"product":"Widget","quantity":3}' }
+
+1..50 | ForEach-Object { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8081/orders" -Headers @{"tenant-id" = (1..5 | Get-Random)} -ContentType "application/json" -Body (@{ product = "Widget-$(1..3 | Get-Random)"; quantity = (1..10 | Get-Random) } | ConvertTo-Json) }
 ```
 
 ## Wnioski
