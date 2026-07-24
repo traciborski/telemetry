@@ -118,8 +118,7 @@ public abstract class KafkaConsumerWorker<TValue> : BackgroundService
         var propagatedTenantId = propagationContext.Baggage.GetBaggage(MessagingTelemetry.TenantIdAttributeName);
         if (string.IsNullOrWhiteSpace(propagatedTenantId))
         {
-            throw new InvalidOperationException(
-                $"Missing required tenant context '{MessagingTelemetry.TenantIdAttributeName}' in trace headers on topic {_topic}.");
+            throw new InvalidOperationException($"Missing required tenant context '{MessagingTelemetry.TenantIdAttributeName}' in trace headers on topic {_topic}.");
         }
 
         if (!string.Equals(propagatedTenantId, tenantId, StringComparison.Ordinal))
@@ -139,8 +138,7 @@ public abstract class KafkaConsumerWorker<TValue> : BackgroundService
 
         try
         {
-            var value = JsonSerializer.Deserialize<TValue>(result.Message.Value)
-                ?? throw new InvalidOperationException($"Could not deserialize message from topic {_topic}");
+            var value = JsonSerializer.Deserialize<TValue>(result.Message.Value) ?? throw new InvalidOperationException($"Could not deserialize message from topic {_topic}");
             await Handle(value, stoppingToken);
             return new MessageProcessingResult(result, Succeeded: true);
         }

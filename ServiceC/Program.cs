@@ -6,6 +6,7 @@ using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceTelemetry("ServiceC");
+builder.Services.AddSingleton<TenantAccessor>();
 var serviceDBaseUrl = builder.Configuration["ServiceD:BaseUrl"] ?? "http://service-d:8080";
 builder.Services.AddHttpClient("ServiceD", client => client.BaseAddress = new Uri(serviceDBaseUrl))
     .AddTenantHeaderPropagation()
