@@ -37,13 +37,13 @@ podman compose up -d --build --force-recreate
 * OTel Span (in Traces) = AppInsights Dependency OR Request = .NET Activity
 * Serilog niepotrzebny
 * mozna zrobic SetStatus i RecordException na Trace'ach
-* jakie libki / potrzebujemy? jakis helper dla libek?
 * tooling / dashboards / guidelines needed
   * no kusto => LogQL + PromQL + TraceQL
 * Kafka propaguje `ActivityContext`; Baggage nie jest używane.
 * koszty ingestii, bez samplingu chyba mozliwe
 * time / memory costs for searching logs and traces
- * search traces by trace id 
+ * search traces by trace id or tags
  * search logs by indexed fields (defined in default_resource_attributes_as_index_labels or custom)
 * multi-tenancy?
 * czasem tracing mozna wylaczac
+* mozna miec customowe metryki
