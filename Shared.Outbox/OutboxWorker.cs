@@ -9,21 +9,13 @@ using Shared.Messaging;
 
 namespace Shared.Outbox;
 
-public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, KafkaProducer producer)
-    : BackgroundService
+public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, KafkaProducer producer) : BackgroundService
     where TDbContext : DbContext, IOutboxDbContext
 {
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(100);
     private const int BatchSize = 20;
-
     private static double _oldestPendingAgeSeconds;
-
-    private static readonly ObservableGauge<double> OldestPendingAgeGauge = OutboxTelemetry.Meter.CreateObservableGauge(
-        "outbox.oldest_pending_age",
-        () => _oldestPendingAgeSeconds,
-        unit: "s",
-        description: "Age of the oldest unpublished outbox message; 0 when the outbox is empty.",
-        tags: [new KeyValuePair<string, object?>("db.context", typeof(TDbContext).Name)]);
+    private static readonly ObservableGauge<double> OldestPendingAgeGauge = OutboxTelemetry.Track(() => _oldestPendingAgeSeconds);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -81,8 +73,7 @@ public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, 
         var propagatedTenantId = propagationContext.Baggage.GetBaggage(MessagingTelemetry.TenantIdAttributeName);
         if (string.IsNullOrWhiteSpace(propagatedTenantId))
         {
-            throw new InvalidOperationException(
-                $"Missing required tenant context '{MessagingTelemetry.TenantIdAttributeName}' in trace headers on outbox message {message.Id}.");
+            throw new InvalidOperationException($"Missing required tenant context '{MessagingTelemetry.TenantIdAttributeName}' in trace headers on outbox message {message.Id}.");
         }
 
         if (!string.Equals(propagatedTenantId, tenantId, StringComparison.Ordinal))

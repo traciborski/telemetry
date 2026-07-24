@@ -32,7 +32,7 @@ podman compose up -d --build --force-recreate
 1..50 | ForEach-Object { Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8081/orders" -Headers @{"tenant-id" = (1..5 | Get-Random)} -ContentType "application/json" -Body (@{ product = "Widget-$(1..3 | Get-Random)"; quantity = (1..10 | Get-Random) } | ConvertTo-Json) }
 ```
 
-## Wnioski
+## Podsumowanie
 * Libki nie powinny robic logow, tylko trace'y (a np replicator?)
 * OTel Span (in Traces) = AppInsights Dependency OR Request = .NET Activity
 * Serilog niepotrzebny
@@ -46,3 +46,4 @@ podman compose up -d --build --force-recreate
  * search traces by trace id 
  * search logs by indexed fields (defined in default_resource_attributes_as_index_labels or custom)
 * multi-tenancy?
+* czasem tracing mozna wylaczac

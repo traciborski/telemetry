@@ -19,7 +19,7 @@ builder.Services
 builder.Services
     .AddOpenTelemetry()
     .WithTracing(x => x.AddEntityFrameworkCoreInstrumentation())
-    .WithMetrics(x => x.AddMeter(OutboxTelemetry.MeterName, OrdersTelemetry.MeterName));
+    .WithMetrics(x => x.AddMeter(OutboxTelemetry.MeterName, OrdersMetrics.MeterName));
 builder.Services.AddHostedService<OutboxWorker<AppDbContext>>();
 
 builder.WebHost.UseUrls("http://*:8080");
@@ -54,18 +54,15 @@ app.MapPost("/orders",
         };
         MessagingTelemetry.InjectTraceContext(outboxMessage.Headers);
 
-        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken);
         db.Orders.Add(order);
         db.OutboxMessages.Add(outboxMessage);
         await db.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
 
-        OrdersTelemetry.OrdersCreated.Add(
-            1,
-            new KeyValuePair<string, object?>("product", request.Product),
-            new KeyValuePair<string, object?>(MessagingTelemetry.TenantIdAttributeName, TenantTelemetryExtensions.RequireCurrentTenantId()));
+        OrdersMetrics.Increment(request.Product);
 
         return Results.Accepted(value: new { message.OrderId });
     });
+
 app.MapGet("/health", () => Results.Ok("healthy"));
+
 app.Run();
