@@ -82,38 +82,32 @@ public static class MessagingTelemetry
 
     public static void ApplyTenantContext(Activity? activity, Headers headers)
     {
-        var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+        _ = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
         var propagationContext = ExtractPropagationContext(headers);
         var tenantId = RequireTenantId(headers, propagationContext);
-
-        currentActivity.SetTag(TenantIdAttributeName, tenantId);
-        currentActivity.SetBaggage(TenantIdAttributeName, tenantId);
+        Baggage.SetBaggage(TenantIdAttributeName, tenantId);
     }
 
     public static void ApplyTenantContext(Activity? activity, IDictionary<string, string> headers)
     {
-        var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
+        _ = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
         var propagationContext = ExtractPropagationContext(headers);
         var tenantId = RequireTenantId(headers, propagationContext);
-
-        currentActivity.SetTag(TenantIdAttributeName, tenantId);
-        currentActivity.SetBaggage(TenantIdAttributeName, tenantId);
+        Baggage.SetBaggage(TenantIdAttributeName, tenantId);
     }
 
     public static void ApplyTenantContext(Activity? activity)
     {
         var currentActivity = activity ?? throw new InvalidOperationException($"Missing required tenant context '{TenantIdHeaderName}'.");
         var tenantId = RequireTenantId(currentActivity);
-
-        currentActivity.SetTag(TenantIdAttributeName, tenantId);
-        currentActivity.SetBaggage(TenantIdAttributeName, tenantId);
+        Baggage.SetBaggage(TenantIdAttributeName, tenantId);
     }
 
     private static string? ExtractTenantId(string? tenantId)
         => string.IsNullOrWhiteSpace(tenantId) ? null : tenantId;
 
     private static string? GetTenantIdFromActivity(Activity activity)
-        => activity.GetBaggageItem(TenantIdAttributeName) ?? activity.GetTagItem(TenantIdAttributeName)?.ToString();
+        => Baggage.GetBaggage(TenantIdAttributeName);
 
     private static string RequireTenantId(Activity activity)
         => GetTenantIdFromActivity(activity)
@@ -144,8 +138,7 @@ public static class MessagingTelemetry
         var currentTenantId = propagationContext.Baggage.GetBaggage(TenantIdAttributeName);
         if (!string.IsNullOrWhiteSpace(currentTenantId) && !string.Equals(currentTenantId, tenantId, StringComparison.Ordinal))
         {
-            throw new InvalidOperationException(
-                $"Tenant mismatch in trace: current tenant '{currentTenantId}' does not match incoming tenant '{tenantId}'.");
+            throw new InvalidOperationException($"Tenant mismatch in trace: current tenant '{currentTenantId}' does not match incoming tenant '{tenantId}'.");
         }
     }
 }

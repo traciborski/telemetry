@@ -40,8 +40,10 @@ public static class OpenTelemetryExtensions
             .WithTracing(tracing => tracing
                 .AddSource(serviceName)
                 .AddSource(KafkaActivitySourceName)
+                .AddSource(TracingHelper.ActivitySourceName)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
+                .AddProcessor(new TenantBaggageSpanProcessor())
                 .AddOtlpExporter(o => o.Endpoint = otlpUri))
             .WithMetrics(metrics => metrics
                 .AddMeter(KafkaActivitySourceName)

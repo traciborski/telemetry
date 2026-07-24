@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Primitives;
+using OpenTelemetry;
 
 namespace Shared.Telemetry;
 
@@ -30,9 +31,7 @@ public static class TenantTelemetryExtensions
             var tenantId = RequireTenantIdFromHeaders(context.Request.Headers);
             EnsureTenantMatchesTrace(tenantId);
 
-            var activity = Activity.Current;
-            activity?.SetTag(TenantIdAttributeName, tenantId);
-            activity?.SetBaggage(TenantIdAttributeName, tenantId);
+            Baggage.SetBaggage(TenantIdAttributeName, tenantId);
 
             var logger = context.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("TenantTelemetry");
             using (logger.BeginScope(new Dictionary<string, object> { [TenantIdAttributeName] = tenantId }))
@@ -42,14 +41,11 @@ public static class TenantTelemetryExtensions
         });
     }
 
-    public static IHttpClientBuilder AddTenantHeaderPropagation(this IHttpClientBuilder builder)
+    public static IHttpClientBuilder AddTenantPropagation(this IHttpClientBuilder builder)
         => builder.AddHttpMessageHandler(() => new TenantHeaderPropagationHandler());
 
     private static string? GetCurrentTenantId()
-    {
-        var activity = Activity.Current;
-        return activity?.GetBaggageItem(TenantIdAttributeName) ?? activity?.GetTagItem(TenantIdAttributeName)?.ToString();
-    }
+        => Baggage.GetBaggage(TenantIdAttributeName);
 
     private static string RequireCurrentTenantId()
         => GetCurrentTenantId() ?? throw new InvalidOperationException($"Missing required tenant header '{TenantIdHeaderName}'.");

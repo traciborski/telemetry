@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Confluent.Kafka;
 using Microsoft.Extensions.Hosting;
+using OpenTelemetry;
 
 namespace Shared.Messaging;
 
@@ -128,8 +129,7 @@ public abstract class KafkaConsumerWorker<TValue> : BackgroundService
 
         var parentContext = propagationContext.ActivityContext;
         using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{_topic} process", ActivityKind.Consumer, parentContext);
-        activity?.SetTag(MessagingTelemetry.TenantIdAttributeName, tenantId);
-        activity?.SetBaggage(MessagingTelemetry.TenantIdAttributeName, tenantId);
+        Baggage.SetBaggage(MessagingTelemetry.TenantIdAttributeName, tenantId);
 
         activity?.SetTag("messaging.system", "kafka");
         activity?.SetTag("messaging.destination.name", _topic);

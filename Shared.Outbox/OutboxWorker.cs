@@ -83,8 +83,7 @@ public sealed class OutboxWorker<TDbContext>(IServiceScopeFactory scopeFactory, 
 
         var parentContext = propagationContext.ActivityContext;
         using var activity = MessagingTelemetry.ActivitySource.StartActivity($"{message.Topic} outbox relay", ActivityKind.Internal, parentContext);
-        activity?.SetTag(MessagingTelemetry.TenantIdAttributeName, tenantId);
-        activity?.SetBaggage(MessagingTelemetry.TenantIdAttributeName, tenantId);
+        Baggage.SetBaggage(MessagingTelemetry.TenantIdAttributeName, tenantId);
 
         activity?.SetTag("messaging.destination.name", message.Topic);
         activity?.SetTag("messaging.kafka.message.key", message.Key);

@@ -9,7 +9,7 @@ builder.AddServiceTelemetry("ServiceC");
 builder.Services.AddSingleton<TenantAccessor>();
 var serviceDBaseUrl = builder.Configuration["ServiceD:BaseUrl"] ?? "http://service-d:8080";
 builder.Services.AddHttpClient("ServiceD", client => client.BaseAddress = new Uri(serviceDBaseUrl))
-    .AddTenantHeaderPropagation()
+    .AddTenantPropagation()
     .AddResilienceHandler("service-d-retry", resilience =>
     {
         resilience.AddRetry(new HttpRetryStrategyOptions
